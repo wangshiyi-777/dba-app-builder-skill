@@ -1,0 +1,4 @@
+interface:
+  display_name: "DBA App Builder"
+  short_description: "Generate and inspect zlib-compressed low-code .dba app packages."
+  default_prompt: "Build or analyze a low-code .dba application package from requirements or an existing .dba template."
