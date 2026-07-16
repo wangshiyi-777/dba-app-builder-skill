@@ -77,7 +77,7 @@ python3 <skill>/scripts/dba_tool.py inspect outputs/generated.dba
 python3 <skill>/scripts/dba_tool.py unpack outputs/generated.dba --out work/generated_check
 ```
 
-8. Ask the user to import-test the generated `.dba`. If import fails, request the exact error/log and patch the JSON/package accordingly.
+8. Ask the user to import-test the generated `.dba`, or perform the import/runtime test yourself when the user provides platform access. If import fails, request the exact error/log and patch the JSON/package accordingly.
 
 ## Workflow: Modify Existing DBA
 
@@ -136,6 +136,32 @@ python3 <skill>/scripts/dba_tool.py summary work/source_dba/app.json --out work/
   - intentionally stripped duplicate-key metadata counts are zero.
 - Search the generated JSON for old field names, old table names, and temporary plain keys before packaging.
 - Treat `errcode: 9999` as insufficient; ask for backend logs around `/apps/import`.
+
+## Runtime Testing After Import
+
+Import success is only the first gate. When platform access is available, use an isolated browser automation session so testing does not disturb the user's browser, then verify the app as an operator would.
+
+Minimum runtime checks:
+
+- Confirm the imported app opens and every module/menu can load its list page.
+- For ordinary forms, test `新增 -> 编辑 -> 删除` and capture the API result; successful CRUD should return `errcode: 0` or `success: true`.
+- For workflow/approval forms, do not judge them by ordinary edit behavior. Test `新建/发起`, then validate workflow actions separately: approve/handle, reject, transfer, withdraw, archive, or delete according to the target platform behavior.
+- Treat `新增` and `新建` as equivalent create-entry labels. Workflow tabs often use `新建` and include views such as `待我办理`, `我已办理`, `我发起的`, and `我的草稿`.
+- Fill required select fields during automation. A failed submit with `此项为必填项` usually means the test skipped a dropdown, not necessarily that the package is broken.
+- Test at least one cross-module business flow with a shared business number or seed value. Verify the same value is visible across upstream/downstream modules. If records are only text-linked, report that true association/auto-fill rules still need implementation.
+
+Dropdown/default-value regression checks:
+
+- Scan all `mamselect` and `mamradio` fields for non-empty `options.defaultValue` or `options.value` unless the requirement explicitly needs a default.
+- Search latest generated JSON, `styleDetail`, `addOption`, and `editOption` for template residues such as `选项一`, `选项二`, `选项三`, or accidental defaults like `个`.
+- If users report dropdowns showing a repeated value such as `个`, inspect cloned template fields first. Clear the default and replace template options with real business options, then retest in the imported app.
+
+Recommended runtime report:
+
+- Package path, imported app name, test date, target URL if relevant, and preserved version values.
+- Local validation counts: groups, forms, tables, fields, workflows, button refs, `dataTitle`/`summary`, dropdown residue count.
+- Runtime table listing each form and whether create/edit/delete or workflow start/delete passed.
+- Known limitations: missing association rules, inventory balance automation, approval-node handling, report aggregation, dashboards, or permissions.
 
 ## Git Management
 
