@@ -40,6 +40,14 @@ Form card actions are hidden under the card's three-dot menu:
 
 App menu actions include rename/change icon, export app without business data, and uninstall app.
 
+Observed import entry on the workbench home page:
+
+- Click `新建应用`.
+- In the first modal, click the `创建空白应用` card.
+- In the second modal, switch from `新建应用` to `导入应用`.
+- Choose `创建新应用`, upload the `.dba` file, optionally rename the app, then confirm.
+- This path is distinct from direct app-management import flows; automation should follow the visible two-step modal when starting from the home page.
+
 ## Designer URLs and Form Types
 
 Observed designer URL shape:
@@ -173,6 +181,14 @@ Observed minimal rule schema:
 - For a target-form insert action, `actions[].steps[].fieldName` is the target field name, `fieldValue` is the trigger/source field name when `assignType` is `TRIGGER_VALUE`, and `componentTypeCode`/`fieldValueComponentTypeCode` should match the platform component names such as `maminput`, `mamselect`, `digitalformat`, `date`.
 - Related-record target fields may include `fieldNameComponentAboutTypeCode: "aboutTable"` and source related fields may include `componentAboutTypeCode: "aboutTable"`.
 - A saved rule is disabled by default unless `handleStatus` is called.
+
+Observed `UPDATE_OR_INSERT` caveat from 佳俊物流 v8 testing:
+
+- `actions[].steps` alone is not enough for first-time insert behavior.
+- A structurally valid imported rule with `UPDATE_OR_INSERT`, `steps`, and `filters` can update or appear enabled but fail to create the first balance row when no matching target record exists.
+- The platform-created 华利安 ERP sample includes `actions[].elseSteps` on `UPDATE_OR_INSERT`; these map fields for the insert branch.
+- When generating inventory-balance rules, set `elseSteps` to the fields required to create a new balance row, typically product/material, warehouse, stock type, current stock via `ADD_UP`, and last-change date. Keep `filters` aligned to the same match keys.
+- Runtime test must verify both branches: first inbound creates one balance row; second inbound for the same material/warehouse updates that same row rather than inserting a duplicate.
 
 Important runtime caveat from 佳俊物流 testing:
 
