@@ -55,6 +55,8 @@ python3 <skill>/scripts/dba_tool.py summary work/dba_unpacked/app.json --out out
    - permissions
    - dashboards/reports
    - import target/platform if known
+   - target platform-native behavior: associations, list views, workflow nodes, business rules, validation rules, print templates, data push, and role permissions
+   - for Dabei/K6/搭贝应用工厂 targets, read `references/dabei-platform.md` before designing the app structure or judging feature completeness
 2. If user has an existing `.dba`, use it as the structural template. If not, explain that output will be a best-effort package.
 3. Produce intermediate deliverables before `.dba`:
    - `feature_list.csv`
@@ -212,3 +214,5 @@ Prefer `ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COMMENT='<form/table label>'` when
 ## References
 
 Read `references/dba-format.md` when you need details on the observed package structure, placeholder resolution, or known compatibility risks.
+
+Read `references/dabei-platform.md` when the target platform is Dabei/K6/搭贝应用工厂, or when you need to design platform-native forms, list views, workflow approvals, business rules, submit validations, permissions, or runtime test flows.
