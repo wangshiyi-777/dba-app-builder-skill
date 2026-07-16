@@ -301,3 +301,23 @@ Automation guidance:
 - After import, open the app in app management or runtime and extract the actual `sysId` and form/menu IDs before testing designer pages.
 - Do not reuse IDs from local `app_config.json` for browser automation unless you have verified they match the imported app.
 - Runtime and designer URLs should be treated as import-instance specific.
+
+## Observed Runtime Validation Findings
+
+Observed on 2026-07-16 while testing an imported logistics app on Dabei/K6:
+
+- A workflow form can successfully start with `/api/flow/definitions/<definitionId>/start`, then expose a pending task in the list and in the global todo badge.
+- Pending workflow details can show node actions such as submit, transfer, reject, return, temporary save, suspend, and print. Completing a node can call `/api/flow/processes_todo/tasks/<taskId>/submit` and move `sys_current_task_approval_status` to the completed state.
+- Workflow start success does not prove business completeness. A form can start and complete a flow even when important child-table details are empty if node submit validation is not configured.
+- Ordinary and workflow forms can save related-record display values plus `<field>_ref_id` and `<field>_ref_child_id`. Runtime tests should inspect the returned `data_grids` payload to confirm the reference id exists, not only that the text appears in the list.
+- `aboutTable` selectors may be empty until seed/master data exists. Before judging a relation field broken, create seed customer, warehouse, supplier, product, or order records and reopen the selector.
+- Inventory-style apps need explicit business rules. Creating an inbound or outbound document does not automatically create inventory ledger or balance rows unless platform business rules have been configured and exported into the DBA package.
+- Child-table business requirements are not guaranteed by field presence. If an inbound/outbound document must contain at least one line, add submit validation at the ordinary form or workflow-node level; otherwise the platform may allow an empty-detail document.
+
+Additional validation checklist for ERP/logistics packages:
+
+- Create seed master data for customer, warehouse, product/material, and supplier before testing downstream forms.
+- Verify related fields in API payloads include `_ref_id`, not just display text.
+- Submit inbound and outbound documents with and without details; confirm the intended validation behavior.
+- After inbound/outbound submission or approval, open inventory ledger and inventory balance forms and check for generated rows.
+- For workflow forms, test both flow start and at least one node action. Record the endpoint result and whether todo counts change.
