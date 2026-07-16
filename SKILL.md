@@ -103,18 +103,37 @@ python3 <skill>/scripts/dba_tool.py summary work/source_dba/app.json --out work/
    - `addOption` and `editOption`
    - `tabFieldReference`
    - `tabs`
+   - `tabViews` only when cloning or preserving existing saved views; do not invent broad replacement views unless platform testing proves they are required
    - `tables[].ddl`
    - association/rule/button references if touched
 6. Preserve importer invariants:
    - `form.id == form.formKey`
    - `tabFieldReference.formId == form.id`
    - `tabs[].tabFormKey == form.id`
+   - every field-bearing form must have usable `tabs` and `tabFieldReference`
+   - when `tabViews` exist, each `tabViews[].tabKey` must match a `tabs[].tabKey` in the same form
    - no temporary plain ids such as `item_category`
 7. Package and import-test one change set at a time. Name outputs by step, e.g. `v1_add_fields.dba`, `v2_add_form.dba`, `v3_add_workflow.dba`.
 
 ## Importer Pitfalls
 
 - If backend logs show `检测到表单id、key不一致存在:@@{symbols.[n]},...` and `StringIndexOutOfBoundsException` in `SymbolTable.extractSymbolIndex`, set `form.formKey = form.id` and align `tabFieldReference.formId` plus all `tabs[].tabFormKey`.
+- Import success is not enough. After any import-debug package, the user must click menus and open representative list pages. If logs show `/tab_views/<id>/settings` with `TabGridViewHelper.fromTab` `NullPointerException`, treat it as a list/menu runtime metadata failure, not an import failure.
+- Do not remove `tabFieldReference` as a generic duplicate-key fix. It is required by list/menu runtime in observed packages. Removing it can allow import but make every menu fail when opened.
+- When stripping duplicate-key metadata, distinguish import-only relation metadata from runtime list metadata:
+  - Safer to strip when duplicate errors require it: `leftTreeOption`, `associationOptions`, `relationOptions`, `referenceRanges`, `referenceForms`, `referenceDataList`, `dataFillList`, `functionOptions`, `assciation`, `aboutTableInfo`, `aboutTableId`, `aboutPluginFormId`, `aboutTablePlugin`, `referenceFormKey`, `referenceFormId`, `linkage`, `linkageTable`, `linkageOptions`, `qrcodeStencil`, `aggregations`.
+  - Preserve or rebuild for every field-bearing form: `tabs`, `tabFieldReference`, `styleDetail`, `addOption`, `editOption`, `dataTitle`, and table DDL.
+  - Preserve existing `tabViews` unless they are the concrete cause of the runtime failure. If rebuilding them, bind each view to a real tab by setting `tabViews[].tabKey` to an existing same-form `tabs[].tabKey`.
+- If the last known-good package is known, use it as the runtime baseline. Compare good vs failing packages for counts and invariants before deleting metadata. In one observed failure chain, package `v8` opened menus correctly, later packages imported only after `tabFieldReference` was stripped, and all menus then failed with `TabGridViewHelper.fromTab`. The successful fix restored the `v8`-style `tabFieldReference/tabs/tabViews` runtime metadata while still stripping only the duplicate-key import metadata.
+- For newly added field-bearing forms cloned from a template, ensure `tabs` are also cloned or rebuilt. A form with fields and `tabFieldReference` but no `tabs` may import yet fail at menu/list runtime.
+- Validation checklist before handing an import-debug `.dba` to the user:
+  - `inspect`, `unpack`, and `summary` pass.
+  - `form.id == form.formKey` for every form.
+  - every field-bearing form has `tabs`, `tabFieldReference`, `styleDetail`, `addOption`, and `editOption`.
+  - `tabFieldReference.formId == form.id`.
+  - every `tabs[].formKey` and `tabs[].tabFormKey` equals the form key.
+  - every existing `tabViews[].tabKey` matches a same-form `tabs[].tabKey`.
+  - intentionally stripped duplicate-key metadata counts are zero.
 - Search the generated JSON for old field names, old table names, and temporary plain keys before packaging.
 - Treat `errcode: 9999` as insufficient; ask for backend logs around `/apps/import`.
 
