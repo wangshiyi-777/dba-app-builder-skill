@@ -157,6 +157,30 @@ When business rules are not configured, report cross-module flows as text-linked
 
 DBA caution: do not invent full business-rule JSON without a hand-created exported sample from the target tenant or a structurally similar package. It is safer to generate the forms and related fields first, then reverse engineer one minimal saved rule such as "inbound order add -> add inventory ledger."
 
+Observed rule APIs on 2026-07-16:
+
+- `POST /api/judge/design/rule/tabs?formId=<formId>&formType=<0|1>` lists rule tabs.
+- `POST /api/judge/design/rule/pageQuery` lists rules for a form.
+- `GET /api/judge/design/rule/<ruleId>` returns full rule detail, including `actions[].steps`, `actions[].childSteps`, `isBatch`, `batchAction`, and `status`.
+- `POST /api/judge/design/rule/validate` validates basic trigger metadata before save.
+- `POST /api/judge/design/rule/save` creates or updates a rule.
+- `POST /api/judge/design/rule/handleStatus` enables or disables a rule. Body shape is `{"id":"<ruleId>","status":"ENABLED"}` or `{"id":"<ruleId>","status":"DISABLED"}`.
+- `GET /api/judge/design/rule/limit/validate` is called before enabling or saving in the designer.
+
+Observed minimal rule schema:
+
+- Rule root includes `name`, `appId`, `formId`, `formKey`, `formName`, `processDefinitionKey`, `triggerType`, `updateType`, `triggers`, and `actions`.
+- For a target-form insert action, `actions[].steps[].fieldName` is the target field name, `fieldValue` is the trigger/source field name when `assignType` is `TRIGGER_VALUE`, and `componentTypeCode`/`fieldValueComponentTypeCode` should match the platform component names such as `maminput`, `mamselect`, `digitalformat`, `date`.
+- Related-record target fields may include `fieldNameComponentAboutTypeCode: "aboutTable"` and source related fields may include `componentAboutTypeCode: "aboutTable"`.
+- A saved rule is disabled by default unless `handleStatus` is called.
+
+Important runtime caveat from 佳俊物流 testing:
+
+- The platform accepted `isBatch: 1`, `childSteps`, and `batchAction` payloads that referenced child-table fields, and `GET /api/judge/design/rule/<ruleId>` returned those structures.
+- Runtime testing showed that accepted JSON did not prove execution correctness. Three probes generated inventory ledger rows from an inbound document, but the ledger only received main-form fields such as source document and inbound type; child-table fields such as product/material, quantity, and unit remained empty.
+- Therefore, do not claim "child table line items generate one ledger row per line" based only on rule-save success. Require a runtime test that creates a document with child rows and then queries the target form to verify every expected child-derived field is populated.
+- If child-table line-item automation is required, either obtain a proven platform-created sample where runtime execution maps child rows correctly, or report the gap explicitly and avoid packaging speculative `childSteps` as a completed feature.
+
 ### Submit Validation
 
 Observed description: during submit, data that does not satisfy validation rules is blocked or warned.
