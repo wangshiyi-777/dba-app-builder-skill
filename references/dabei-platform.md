@@ -129,9 +129,22 @@ Controls visibility, writability, and requiredness. Add-data permissions and vie
 
 When the current form is referenced by another form's related-record field, related lists allow quick viewing/creation of linked data. Use this for native cross-module navigation instead of text-only linking.
 
+Observed route: `#/formsetting/link-list`.
+
+If the current form is not referenced by any `aboutTable` or multi-related field, the page can show that no related-list setup is needed. Do not expect related lists to become useful until real related-record fields exist.
+
 ### Business Rules
 
 Observed description: after current-form data changes, automatically add, update, or delete data in other forms.
+
+Observed route: `#/formsetting/business-rule`.
+
+Observed new-rule trigger options:
+
+- Data-change triggers: add data, update data, delete data, delete child-table data, custom button.
+- Scheduled triggers: repeating schedule, one-time schedule, and form-date-field cyclic trigger.
+- Trigger filters can be added.
+- The rule editor includes simple mode, operation logs, execution logs, and save.
 
 Use business rules for:
 
@@ -142,9 +155,22 @@ Use business rules for:
 
 When business rules are not configured, report cross-module flows as text-linked only.
 
+DBA caution: do not invent full business-rule JSON without a hand-created exported sample from the target tenant or a structurally similar package. It is safer to generate the forms and related fields first, then reverse engineer one minimal saved rule such as "inbound order add -> add inventory ledger."
+
 ### Submit Validation
 
 Observed description: during submit, data that does not satisfy validation rules is blocked or warned.
+
+Observed route: `#/formsetting/submit-check`.
+
+Observed new-validation dialog:
+
+- Uses a formula editor rather than a simple condition table.
+- Includes prompt text for failed validation.
+- Includes an "only prompt" toggle; when disabled, validation should block submit.
+- Formula editor can reference current-form fields and operators.
+- Function groups include text, number, date, logic, and advanced functions.
+- Observed functions include `LEFT`, `LEN`, `CONCAT`, `VALUE`, `ABS`, `COUNT`, `SUM`, `SUMIF`, `ROUND`, `PRODUCT`, `REDUCE`, `DAYS`, `ADDDAY`, `SYSTIME`, `TODAY`, `IF`, `AND`, `OR`, `CASE`, `ISNULL`, `UUID`, `JOIN`, `LEADER`, and `AVG`.
 
 Typical rules:
 
@@ -220,6 +246,8 @@ Workflow canvas observations:
 - Flow designer has validate and publish actions.
 - Node panel includes flow info and node info.
 - A selected handling node exposes node name, description, node ID, upstream/downstream, node assignees, CC users, approval rules, field permissions, form-button settings, hang, submit, transfer, reject, return, temporary save, signature, add-sign, timeout, submit validation, signature opinion, transfer scope, batch approval, and handwritten-signature requiredness.
+- A workflow form can expose a flow-card management page before entering the canvas. Observed flow-card actions include basic information, flow design, flow copy, flow versions, flow disable, and flow delete.
+- The flow canvas palette can include start, handling, end, exclusive gateway, parallel gateway, inclusive gateway, and intermediate task node.
 
 DBA workflow guidance:
 
@@ -256,9 +284,20 @@ Automation cautions:
 For apps like 佳俊物流:
 
 - Prefer related records for customer, supplier, product, material, order, warehouse, and batch references.
+- Treat plain order/customer/product number fields as weaker than native `aboutTable` links. If the latest generated package has zero related-record fields, cross-module flow is only text-linked even if the same business number appears in multiple forms.
 - Use business rules for inventory ledger and inventory balance changes.
 - Use submit validation for stock, amount, uniqueness, and exception completeness.
 - Put approval logic in flow-node settings, not only form-level settings.
 - Use print templates for contracts, inbound/outbound slips, customs docs, and sign-off forms.
 - Use external links for supplier/customer collaboration only when the business requires external entry/query.
 - Report dashboards should ideally be list/statistic/kanban/calendar style, not plain static tables unless the platform lacks a better exported representation.
+
+## Imported-App Runtime IDs
+
+Dabei/K6 can assign new IDs after importing a DBA package. The IDs in the local package JSON may not match the imported runtime/design URLs.
+
+Automation guidance:
+
+- After import, open the app in app management or runtime and extract the actual `sysId` and form/menu IDs before testing designer pages.
+- Do not reuse IDs from local `app_config.json` for browser automation unless you have verified they match the imported app.
+- Runtime and designer URLs should be treated as import-instance specific.
