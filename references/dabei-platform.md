@@ -295,6 +295,13 @@ DBA workflow guidance:
 - Clone a known-good workflow and update IDs, form references, definition IDs, XML/image IDs, and button references consistently.
 - Runtime tests for workflow forms should cover start/new, handling/approval, reject, return, transfer, withdraw/delete, and archive where supported.
 
+Observed workflow import caveat from 佳俊物流 v9-v12 testing on 2026-07-17:
+
+- `GET /api/flow/forms/<formId>/definitions`, `GET /api/flow/definitions/<definitionId>/start_form`, and `GET /api/flow/definitions/<definitionId>/buttons` can all return success while the actual start endpoint still fails with `errcode:500` and `系统繁忙，请稍后重试`.
+- Do not report an imported workflow as usable until `POST /api/flow/definitions/<definitionId>/start` succeeds and produces a process/todo. Loading the start form is only a metadata check.
+- The frontend start body adds `taskSource`, `operatorType: 1`, `source`, `modelId`, and `ignoreValidIds`; include these when reproducing UI behavior, but treat continued 500s as a workflow-engine/model issue that likely requires a platform-created, published workflow sample or backend logs.
+- For logistics inventory flows, keep stock ledger/balance mutations on ordinary detail forms when possible. In 佳俊物流 v12, `出库单明细表` as an ordinary form successfully generated one inventory ledger row and deducted inventory balance from 20 to 17, while imported workflow-form starts still returned 500.
+
 ## Runtime Testing Patterns
 
 Ordinary form tests:
