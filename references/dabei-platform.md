@@ -301,6 +301,7 @@ Observed workflow import caveat from 佳俊物流 v9-v12 testing on 2026-07-17:
 - Do not report an imported workflow as usable until `POST /api/flow/definitions/<definitionId>/start` succeeds and produces a process/todo. Loading the start form is only a metadata check.
 - The frontend start body adds `taskSource`, `operatorType: 1`, `source`, `modelId`, and `ignoreValidIds`; include these when reproducing UI behavior, but treat continued 500s as a workflow-engine/model issue that likely requires a platform-created, published workflow sample or backend logs.
 - For logistics inventory flows, keep stock ledger/balance mutations on ordinary detail forms when possible. In 佳俊物流 v12, `出库单明细表` as an ordinary form successfully generated one inventory ledger row and deducted inventory balance from 20 to 17, while imported workflow-form starts still returned 500.
+- 佳俊物流 v13 confirmed the pragmatic pattern: converting `出库单` from workflow form to ordinary form, while keeping contracts/payment/QC as workflow shells, allowed `出库单 -> 出库单明细表 -> 库存流水 -> 库存余额` to pass runtime testing. The same test imported as a new app, opened 35/35 list pages, passed 8/8 module-level ordinary CRUD smokes, and reduced inventory balance from 14 to 11 after an outbound order. Remaining workflow forms still returned failed actual `/start` probes, so approval usability must be reported separately from inventory-chain usability.
 
 ## Runtime Testing Patterns
 
