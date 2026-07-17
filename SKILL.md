@@ -17,10 +17,94 @@ Use this skill for `.dba` low-code app packages. Treat `.dba` as a private platf
 
 1. Always preserve the original `.dba` file; write extracted and generated files to the workspace or requested output folder.
 2. Inspect before editing: identify compression, JSON shape, version, app name, symbol table, forms, tables, flows, and dashboards.
-3. Use `scripts/dba_tool.py` for deterministic unpack/pack/summary/resolve operations.
+3. Use `scripts/dba_tool.py` for deterministic unpack/pack/summary/resolve/validate operations.
 4. If generating an importable `.dba`, start from an existing template `.dba` whenever available, then replace/add app metadata, groups, forms, fields, DDL, and symbol table values.
 5. Clearly label generated `.dba` files as import-test artifacts. Platform import compatibility must be verified in the target system.
 6. Do not claim successful platform compatibility until the user confirms import worked or provides importer logs.
+7. Do not claim business-flow completeness from forms alone. A cross-module process is complete only when represented by platform-native related-record fields, child tables, business rules, workflow node settings, submit validations, or verified runtime behavior.
+
+## Source-Derived Platform Invariants
+
+These constraints are derived from the K6/Dabei decompiled services and must be treated as hard generation rules unless a known-good template proves otherwise.
+
+- Import symbol conversion expects symbol placeholders in form identity fields. Keep `form.id == form.formKey`; keep related form references on the same placeholder style where the template uses placeholders.
+- Runtime list pages query `tabs` by `appId + formKey` and `tabViews` by `formKey + tabKey`. A form that imports but lacks aligned `tabs`, `tabFieldReference`, or `tabViews` can fail only when the menu is opened.
+- Physical data grids query the SQL table named by `form.tableName`; missing `tables[]` DDL or missing field columns will surface later as `对应关联表未生效` or SQL `unknown column` errors.
+- Design table creation validates duplicate field names, maximum column-name length, standard database naming, and system-column collisions. Generate platform-style ASCII column names and avoid system columns such as `sys_status`, `sys_create_time`, `data_title`, `summary`, `table_id`, and workflow status columns.
+- Child-table components are real physical tables. A `childrenTable` field must have a same-named table DDL and its child fields' columns must exist in that DDL.
+- `aboutTable` fields should include helper storage columns such as display value plus `_ref_id` and, when needed, `_ref_child_id`. Text-only references are not a native business relation.
+- PolarDB-like sources may use InnoDB-style DDL while older observed packages use MyISAM. Prefer the source template's engine and charset; do not mix engines casually inside one package.
+
+## Project-to-DBA Design Discipline
+
+For "any project" requests, design in this order before writing JSON:
+
+1. **Master data**: customers, suppliers, products/materials, warehouses, employees, departments, dictionaries.
+2. **Transaction documents**: orders, inbound/outbound, QC, payments, invoices, tasks, contracts.
+3. **Detail lines**: child tables for line items; never flatten important repeating data into numbered text fields.
+4. **State tables**: inventory balance, ledger, receivable/payable, progress/status records.
+5. **Native links**: `aboutTable` references between documents and master data, plus `_ref_id` payload verification.
+6. **Automation**: business rules for ledger/balance/task creation; workflow node settings for approvals; submit validations for required detail rows and stock/amount rules.
+7. **Experience metadata**: tabs, list views, buttons, permissions, print templates, dashboards, and seed-data assumptions.
+
+If a requirement cannot be represented with a proven exported sample for a native feature, mark it as a known limitation instead of inventing speculative JSON.
+
+## Association/Relation Contract
+
+For every cross-module relationship, produce an association matrix before generating the DBA JSON:
+
+- source form and source field
+- target form and target display field
+- stored columns, including display value plus `_ref_id` and `_ref_child_id` when the platform component uses them
+- data-fill assignments from target fields back into source fields
+- related-list/list-view expectations on both forms
+- whether the relation is single related record, multi-related record, child-table relation, or plain text reference
+
+Generation rules:
+
+- Use `aboutTable` or the template's related-record component for real master/detail and document/document links. Plain text numbers are acceptable only as searchable display fields, not as the sole business relation.
+- Keep association metadata (`associationOptions`, `relationOptions`, `linkageOptions`, `referenceForms`, `dataFillList`) only when cloned from a known-good package or verified against a platform-created sample. Do not invent deep relation JSON from field names alone.
+- When relation metadata is stripped to fix import duplicate-key failures, preserve the actual related-record field columns. Report the relation as "field-level reference only" until runtime selection and `_ref_id` payload storage are tested.
+- Seed master data is part of relation testing. A related-record selector can appear empty if customer, supplier, warehouse, product, employee, or order seed records do not exist yet.
+
+## Business Rule Generation Contract
+
+Business rules are the native automation layer for inventory, ledger, finance, task creation, and status propagation. A generated rule is incomplete unless all of these are defined:
+
+- trigger form, trigger event, trigger filters, and enabled/disabled status
+- action target form and action type (`INSERT`, `UPDATE`, `DELETE`, or `UPDATE_OR_INSERT`)
+- match filters for `UPDATE`, `DELETE`, and `UPDATE_OR_INSERT`
+- assignment steps for `INSERT`, `UPDATE`, and `UPDATE_OR_INSERT`
+- `elseSteps` for the insert branch of every `UPDATE_OR_INSERT`
+- explicit source/target component types for assignments where the platform requires them
+- child-table or batch mappings only when cloned from a proven runtime-working sample
+
+Source-derived rule invariants:
+
+- `UPDATE_OR_INSERT` without `elseSteps` can save but fail to create the first target record.
+- `UPDATE`, `DELETE`, and `UPDATE_OR_INSERT` require filters; otherwise the rule is unsafe or rejected.
+- `INSERT`, `UPDATE`, and `UPDATE_OR_INSERT` require steps; save success without assignments is metadata-only.
+- `childSteps`, `batchAction`, or cartesian mappings must be runtime-tested with child rows. The designer may accept the JSON while execution still leaves child-derived fields empty.
+- After import, rule validation/save/enable success is not proof of execution. Test the actual data mutation branch, including both the update branch and first-time insert branch for balance-style rules.
+
+## Workflow Generation Contract
+
+Approval workflows must be generated from a platform-created, published workflow template whenever the app must actually start approvals.
+
+Required coherent workflow assets:
+
+- form type, form id/formKey, tableName, workflow status fields, and processKey
+- `flowModels` model id, definition id/key, version metadata, and model/form process keys
+- `authorityRule` starters, inspectors, monitors, slayers, and role/user references
+- `nodeSettings` node ids/names, assignees, field permissions, form/list buttons, submit validations, print/signature settings, and approval actions
+- BPMN XML, process image, XML/image file ids, and node ids rewritten together
+- workflow buttons and list tabs such as todo, done, started, delegated, drafts when the template uses them
+
+Workflow rules:
+
+- Do not treat a `flowModels` shell as a usable approval. Start-form metadata can load while the real `/api/flow/definitions/<definitionId>/start` still fails.
+- Prefer ordinary forms plus business rules for high-risk inventory/ledger mutations unless a workflow sample has been proven to start and execute node actions in the target tenant.
+- Report approval forms separately from ordinary CRUD and business-rule flows. A logistics/ERP app can have working inventory automation while imported approval starts still require a platform-authored workflow sample.
 
 ## Workflow: Analyze Existing DBA
 
@@ -61,6 +145,9 @@ python3 <skill>/scripts/dba_tool.py summary work/dba_unpacked/app.json --out out
 3. Produce intermediate deliverables before `.dba`:
    - `feature_list.csv`
    - `data_model.md`
+   - `association_matrix.md`
+   - `business_rules.md`
+   - `workflow_plan.md`
    - `schema.sql`
    - `app_config.json`
 4. Generate IDs deterministically enough for consistency:
@@ -77,9 +164,11 @@ python3 <skill>/scripts/dba_tool.py summary work/dba_unpacked/app.json --out out
 python3 <skill>/scripts/dba_tool.py pack app_config.json --out outputs/generated.dba
 python3 <skill>/scripts/dba_tool.py inspect outputs/generated.dba
 python3 <skill>/scripts/dba_tool.py unpack outputs/generated.dba --out work/generated_check
+python3 <skill>/scripts/dba_tool.py validate work/generated_check/app.json --out outputs/generated.validate.json
 ```
 
-8. Ask the user to import-test the generated `.dba`, or perform the import/runtime test yourself when the user provides platform access. If import fails, request the exact error/log and patch the JSON/package accordingly.
+8. Read `outputs/generated.validate.json`. Fix every `issues[]` item before handing over the package. Explain any remaining `warnings[]` as runtime-test risks.
+9. Ask the user to import-test the generated `.dba`, or perform the import/runtime test yourself when the user provides platform access. If import fails, request the exact error/log and patch the JSON/package accordingly.
 
 ## Workflow: Modify Existing DBA
 
@@ -115,7 +204,31 @@ python3 <skill>/scripts/dba_tool.py summary work/source_dba/app.json --out work/
    - every field-bearing form must have usable `tabs` and `tabFieldReference`
    - when `tabViews` exist, each `tabViews[].tabKey` must match a `tabs[].tabKey` in the same form
    - no temporary plain ids such as `item_category`
-7. Package and import-test one change set at a time. Name outputs by step, e.g. `v1_add_fields.dba`, `v2_add_form.dba`, `v3_add_workflow.dba`.
+7. Run `dba_tool.py validate` after every changed package and fix all `issues[]`.
+8. Package and import-test one change set at a time. Name outputs by step, e.g. `v1_add_fields.dba`, `v2_add_form.dba`, `v3_add_workflow.dba`.
+
+## Workflow: Import-Debug Iteration
+
+Use this tighter loop when the user reports that import or runtime failed:
+
+1. Classify the failure:
+   - Import failure: `/apps/import`, symbol conversion, duplicate key, invalid metadata.
+   - Menu/list runtime failure: `/tab_views/<id>/settings`, `TabGridViewHelper`, blank list page, missing tabs/views.
+   - Data-grid runtime failure: SQL table missing, unknown column, bad `sourceId/tableName`, child-table DDL missing.
+   - Workflow runtime failure: start-form loads but `/flow/definitions/<id>/start` fails.
+   - Rule runtime failure: rule saves/enables but does not create/update target records.
+2. Compare the failing package against the last known-good package before deleting metadata.
+3. Fix only the failing layer first. Do not strip runtime metadata to solve an import-only duplicate-key error.
+4. Repack, unpack, summarize, and validate:
+
+```bash
+python3 <skill>/scripts/dba_tool.py pack fixed.json --out outputs/fixed.dba
+python3 <skill>/scripts/dba_tool.py unpack outputs/fixed.dba --out work/fixed_check
+python3 <skill>/scripts/dba_tool.py summary work/fixed_check/app.json --out work/fixed_check/summary
+python3 <skill>/scripts/dba_tool.py validate work/fixed_check/app.json --out outputs/fixed.validate.json
+```
+
+5. Ask for backend logs around the exact failing endpoint if local validation passes but the platform still fails.
 
 ## Importer Pitfalls
 
@@ -128,8 +241,13 @@ python3 <skill>/scripts/dba_tool.py summary work/source_dba/app.json --out work/
   - Preserve existing `tabViews` unless they are the concrete cause of the runtime failure. If rebuilding them, bind each view to a real tab by setting `tabViews[].tabKey` to an existing same-form `tabs[].tabKey`.
 - If the last known-good package is known, use it as the runtime baseline. Compare good vs failing packages for counts and invariants before deleting metadata. In one observed failure chain, package `v8` opened menus correctly, later packages imported only after `tabFieldReference` was stripped, and all menus then failed with `TabGridViewHelper.fromTab`. The successful fix restored the `v8`-style `tabFieldReference/tabs/tabViews` runtime metadata while still stripping only the duplicate-key import metadata.
 - For newly added field-bearing forms cloned from a template, ensure `tabs` are also cloned or rebuilt. A form with fields and `tabFieldReference` but no `tabs` may import yet fail at menu/list runtime.
+- If logs show `对应关联表未生效` from `DataGridQueryHandler`, treat it as a missing physical table or wrong `sourceId/tableName`, not as a permissions problem. Verify `forms[].tableName`, top-level `tables[]`, and the target database table.
+- If logs show SQL unknown-column errors, compare `fields[].columns`, `styleDetail`/view selected fields, and top-level DDL. The field can exist visually but lack a physical SQL column.
+- If a workflow form loads metadata but actual start returns `系统繁忙，请稍后重试`, do not report workflow success. Require a platform-created published workflow sample or backend logs.
+- If a business rule saves and enables but does not mutate target data, treat save success as metadata-only. Runtime-test both insert and update branches, especially `UPDATE_OR_INSERT` rules and child-table mappings.
 - Validation checklist before handing an import-debug `.dba` to the user:
   - `inspect`, `unpack`, and `summary` pass.
+  - `validate` has no `issues[]`.
   - `form.id == form.formKey` for every form.
   - every field-bearing form has `tabs`, `tabFieldReference`, `styleDetail`, `addOption`, and `editOption`.
   - `tabFieldReference.formId == form.id`.
@@ -151,6 +269,10 @@ Minimum runtime checks:
 - Treat `新增` and `新建` as equivalent create-entry labels. Workflow tabs often use `新建` and include views such as `待我办理`, `我已办理`, `我发起的`, and `我的草稿`.
 - Fill required select fields during automation. A failed submit with `此项为必填项` usually means the test skipped a dropdown, not necessarily that the package is broken.
 - Test at least one cross-module business flow with a shared business number or seed value. Verify the same value is visible across upstream/downstream modules. If records are only text-linked, report that true association/auto-fill rules still need implementation.
+- For data grids, open at least one list page per module and watch for table-missing or unknown-column errors. These usually indicate DDL/tableName/field-column mismatch, even if import succeeded.
+- For related-record fields, create seed master data first, select a record in the UI, submit, then verify the API payload stores `_ref_id`, not only display text.
+- For business rules, verify target records are actually created/updated. Rule import/save/enable success is not proof of execution.
+- For workflows, verify actual flow start and at least one task action endpoint, not only the start-form metadata endpoint.
 
 Dropdown/default-value regression checks:
 
@@ -164,6 +286,33 @@ Recommended runtime report:
 - Local validation counts: groups, forms, tables, fields, workflows, button refs, `dataTitle`/`summary`, dropdown residue count.
 - Runtime table listing each form and whether create/edit/delete or workflow start/delete passed.
 - Known limitations: missing association rules, inventory balance automation, approval-node handling, report aggregation, dashboards, or permissions.
+
+## Local Validation Command
+
+Run this before every handoff:
+
+```bash
+python3 <skill>/scripts/dba_tool.py validate work/generated_check/app.json --out outputs/generated.validate.json
+```
+
+The validator checks source-derived invariants including:
+
+- invalid symbol indexes
+- `form.id` / `form.formKey` mismatch
+- missing field-bearing form runtime metadata
+- tab and tab-view key mismatches
+- missing top-level table DDL
+- field columns missing from DDL
+- duplicate or non-standard database field names
+- system-column collisions
+- missing child-table DDL
+- missing related-record helper columns
+- inconsistent or incomplete association metadata
+- incomplete business-rule trigger/action/filter/step metadata
+- risky child-table/batch business-rule mappings
+- incomplete workflow model/process/node settings metadata
+
+Fix every `issues[]` item. Treat `warnings[]` as explicit runtime-test risks that must be reported.
 
 ## Git Management
 

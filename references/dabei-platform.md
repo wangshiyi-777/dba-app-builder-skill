@@ -163,6 +163,16 @@ Use business rules for:
 
 When business rules are not configured, report cross-module flows as text-linked only.
 
+Design every rule as a contract, not as a loose JSON block:
+
+- trigger form/event/filter
+- target form/action type
+- update/delete/upsert match filters
+- insert/update assignments
+- upsert `elseSteps`
+- source and target component types
+- child-table/batch behavior with a runtime proof case
+
 DBA caution: do not invent full business-rule JSON without a hand-created exported sample from the target tenant or a structurally similar package. It is safer to generate the forms and related fields first, then reverse engineer one minimal saved rule such as "inbound order add -> add inventory ledger."
 
 Observed rule APIs on 2026-07-16:
@@ -294,6 +304,7 @@ DBA workflow guidance:
 - Do not treat a workflow as only a `flowModels` shell. Node permissions, node buttons, validators, and assignee rules determine real behavior.
 - Clone a known-good workflow and update IDs, form references, definition IDs, XML/image IDs, and button references consistently.
 - Runtime tests for workflow forms should cover start/new, handling/approval, reject, return, transfer, withdraw/delete, and archive where supported.
+- Keep approval usability separate from form CRUD usability in reports. A workflow card, definition list, or start-form response is not equivalent to a successful process start.
 
 Observed workflow import caveat from 佳俊物流 v9-v12 testing on 2026-07-17:
 
@@ -333,6 +344,7 @@ For apps like 佳俊物流:
 
 - Prefer related records for customer, supplier, product, material, order, warehouse, and batch references.
 - Treat plain order/customer/product number fields as weaker than native `aboutTable` links. If the latest generated package has zero related-record fields, cross-module flow is only text-linked even if the same business number appears in multiple forms.
+- Maintain an association matrix for each relationship: source field, target form, display field, stored helper columns, data-fill fields, and related-list expectations.
 - Use business rules for inventory ledger and inventory balance changes.
 - Use submit validation for stock, amount, uniqueness, and exception completeness.
 - Put approval logic in flow-node settings, not only form-level settings.
