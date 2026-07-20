@@ -141,6 +141,28 @@ Observed route: `#/formsetting/link-list`.
 
 If the current form is not referenced by any `aboutTable` or multi-related field, the page can show that no related-list setup is needed. Do not expect related lists to become useful until real related-record fields exist.
 
+### Data Fill / Data Linkage
+
+Observed from the 华利安 ERP reference package: a working related-record selector can carry field-fill mappings in the selector field's `options.dataFillList`. This is separate from root-level `associationOptions` and from the related field's display/search configuration.
+
+Observed `dataFillList[]` item shape:
+
+- `aboutTableField`: source field model/name on the selected related record.
+- `aboutType`: source component type, such as `maminput`, `mamselect`, `digitalformat`, or `aboutTable`.
+- `aboutTablePlugin`: object with `model` and `type` for the source field.
+- `currentTableField`: target field model/name on the current form.
+- `currentType` and `currentFilltype`: target component type.
+- `currentTableChidlrenTableModel`: empty for main-form targets; set to the child-table model/name when filling a child-row field.
+- `aboutTableChildrenTableModel`: empty when the source is a main-form field.
+- `id`, `key`, `tKey`, and `tcKey`: opaque stable ids/keys; cloned/generated packages should keep them unique per mapping.
+
+Generation guidance:
+
+- Add `dataFillList` only to the selector that triggers the fill, not to every filled target field.
+- For child-table selectors, add the mapping to the child field inside `childrenTable.children`; if the package also keeps flattened `childrenField` entries in `form.fields`, keep both copies aligned.
+- Use this for safe master-data fill cases such as product/material selection filling code, specification, unit, material, price, packing, customs, or declaration fields.
+- Do not claim runtime success from `dataFillList` metadata alone. Import and create seed master data, select a related record in the UI, then verify the filled values appear in the submitted payload.
+
 ### Business Rules
 
 Observed description: after current-form data changes, automatically add, update, or delete data in other forms.
