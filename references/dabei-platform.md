@@ -358,7 +358,15 @@ Workflow form tests:
 Automation cautions:
 
 - Required selects must be selected; otherwise validation such as `此项为必填项` is a test-script problem, not necessarily a package problem.
+- Reproduce the frontend value shape for `mamselect`: submit a one-element array such as `["不合格"]`. The database stores JSON-array text and judge-rule triggers commonly compare against that array shape; a scalar-string API probe can produce a false rule failure.
 - Dropdowns showing `个` or `选项一/二/三` usually indicate cloned-template defaults/options. Clear `options.defaultValue` and `options.value`, and replace options with business values.
+
+DataM dashboard cautions observed during 佳俊物流 v16-v17 testing on 2026-07-20:
+
+- DataM can generate an outer query that references configured result aliases without adding identifier quotes. Aliases such as `完成率%`, `增长率%`, `转化率%`, or `利润率%` therefore caused `/api/datam/api/view/getData` SQL errors even though the configured inner SQL used backticks.
+- Use safe result names such as `完成率`, `增长率`, `转化率`, and `利润率`; keep the SQL alias, view `model` key/name/alias, and widget `model`/`cols` name/alias synchronized.
+- Direct SQL output of a `mamselect` column exposes storage such as `["原料入库"]`. Normalize single-select text in the SQL view before display, and test with both populated and empty values.
+- A dashboard passes only after the runtime page renders actual seeded rows without `组件配置异常` and the browser console/getData response contains no relevant errors.
 
 ## Logistics/ERP Design Implications
 

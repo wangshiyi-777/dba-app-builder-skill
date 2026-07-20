@@ -273,6 +273,7 @@ Minimum runtime checks:
 - For data grids, open at least one list page per module and watch for table-missing or unknown-column errors. These usually indicate DDL/tableName/field-column mismatch, even if import succeeded.
 - For related-record fields, create seed master data first, select a record in the UI, submit, then verify the API payload stores `_ref_id`, not only display text.
 - For business rules, verify target records are actually created/updated. Rule import/save/enable success is not proof of execution.
+- Match the frontend payload shape when testing rules. A Dabei/K6 single-select `mamselect` is submitted as a one-element array such as `["不合格"]`, not the scalar string `"不合格"`; using a scalar can make an otherwise working condition rule appear broken.
 - For workflows, verify actual flow start and at least one task action endpoint, not only the start-form metadata endpoint.
 
 Dropdown/default-value regression checks:
@@ -280,6 +281,12 @@ Dropdown/default-value regression checks:
 - Scan all `mamselect` and `mamradio` fields for non-empty `options.defaultValue` or `options.value` unless the requirement explicitly needs a default.
 - Search latest generated JSON, `styleDetail`, `addOption`, and `editOption` for template residues such as `选项一`, `选项二`, `选项三`, or accidental defaults like `个`.
 - If users report dropdowns showing a repeated value such as `个`, inspect cloned template fields first. Clear the default and replace template options with real business options, then retest in the imported app.
+
+Dashboard/DataM regression checks:
+
+- Keep SQL result aliases, view-model keys, and widget column names aligned and limited to letters, numbers, underscores, or ordinary Chinese text. Avoid `%`, `/`, parentheses, and other characters that require identifier quoting: DataM can wrap the configured SQL in an outer query without quoting those aliases, causing `/api/datam/api/view/getData` to fail even though the inner SQL is valid.
+- `mamselect` values are stored as JSON-array text. When a custom SQL dashboard reads a single-select column directly, normalize it to display text so the table shows `原料入库` instead of `["原料入库"]`.
+- Open every imported dashboard with seeded records, verify visible rows and values, and inspect both the `getData` response and browser console. Dashboard metadata/import success alone is not runtime proof.
 
 Recommended runtime report:
 
@@ -312,6 +319,9 @@ The validator checks source-derived invariants including:
 - incomplete business-rule trigger/action/filter/step metadata
 - risky child-table/batch business-rule mappings
 - incomplete workflow model/process/node settings metadata
+- invalid DataM JSON and unsafe dashboard result aliases that can break the platform's outer SQL
+
+Exported child fields may appear both under `childrenTable.children` and as top-level `childrenField: true` mirrors. Validate mirror columns against the child-table DDL only; do not require them in the main-form DDL. Resolve child-table symbol placeholders before applying database-name checks.
 
 Fix every `issues[]` item. Treat `warnings[]` as explicit runtime-test risks that must be reported.
 

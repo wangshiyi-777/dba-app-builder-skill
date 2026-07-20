@@ -443,6 +443,7 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
     workflow_forms = 0
     association_metadata_count = 0
     judge_rule_count = 0
+    dashboard_count = 0
 
     for group_index, group in enumerate(app.get("groups") or []):
         group_name = group.get("name", f"group[{group_index}]")
@@ -568,7 +569,10 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
                     if count > 1:
                         issue(f"{scope_label}: duplicate field/column name {name!r}")
 
-            validate_field_list(form_fields, form_label, table_name)
+            # Exported child fields can appear twice: nested under childrenTable.children
+            # and as childrenField mirrors in form.fields. Mirrors belong to the child DDL.
+            main_fields = [field for field in form_fields if not field.get("childrenField")]
+            validate_field_list(main_fields, form_label, table_name)
             for field in form_fields:
                 if field.get("type") == "childrenTable":
                     child_tables += 1
@@ -576,9 +580,10 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
                     if not child_name:
                         issue(f"{form_label}: childrenTable missing name/table name")
                         continue
-                    if not db_name_re.match(str(child_name)):
+                    child_resolved_name = resolve_string(str(child_name), values)
+                    if not db_name_re.match(child_resolved_name):
                         issue(f"{form_label}: non-standard child table name: {child_name}")
-                    child_table = table_by_raw.get(str(child_name)) or table_by_resolved.get(resolve_string(str(child_name), values))
+                    child_table = table_by_raw.get(str(child_name)) or table_by_resolved.get(child_resolved_name)
                     if not child_table:
                         issue(f"{form_label}: child table {child_name!r} has no top-level tables[] DDL")
                     validate_field_list(field.get("children") or [], f"{form_label}/{field.get('comment', child_name)}", child_name)
@@ -740,6 +745,67 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
     if workflow_forms and not any((form.get("flowModels") or []) for form in forms):
         warn("workflow form counter mismatch")
 
+    def embedded_json(value, label):
+        if isinstance(value, dict):
+            return value
+        if value in (None, ""):
+            return {}
+        if not isinstance(value, str):
+            issue(f"{label}: expected JSON object or JSON string")
+            return {}
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            issue(f"{label}: invalid embedded JSON: {exc}")
+            return {}
+        if not isinstance(parsed, dict):
+            issue(f"{label}: embedded JSON must decode to an object")
+            return {}
+        return parsed
+
+    def safe_dashboard_alias(value) -> bool:
+        text = str(value or "")
+        return bool(text) and (text[0] == "_" or text[0].isalpha()) and all(
+            char == "_" or char.isalnum() for char in text
+        )
+
+    datam = embedded_json(obj.get("datamConfig"), "datamConfig")
+    dashboards = datam.get("dashBoardList") or []
+    if dashboards and not isinstance(dashboards, list):
+        issue("datamConfig.dashBoardList: expected a list")
+        dashboards = []
+    dashboard_count = len(dashboards)
+    for dashboard_index, dashboard in enumerate(dashboards):
+        if not isinstance(dashboard, dict):
+            issue(f"datamConfig.dashBoardList[{dashboard_index}]: dashboard must be an object")
+            continue
+        dashboard_label = dashboard.get("name") or f"dashboard[{dashboard_index}]"
+        for view_index, view in enumerate(dashboard.get("views") or []):
+            if not isinstance(view, dict):
+                continue
+            model = embedded_json(view.get("model"), f"{dashboard_label}/views[{view_index}].model")
+            for alias in model:
+                if not safe_dashboard_alias(alias):
+                    issue(
+                        f"{dashboard_label}/views[{view_index}]: unsafe DataM result alias {alias!r}; "
+                        "use letters, numbers, underscores, or ordinary Chinese text"
+                    )
+        for widget_index, widget in enumerate(dashboard.get("widgets") or []):
+            if not isinstance(widget, dict):
+                continue
+            config = embedded_json(widget.get("config"), f"{dashboard_label}/widgets[{widget_index}].config")
+            aliases = set((config.get("model") or {}).keys())
+            for column in config.get("cols") or []:
+                if not isinstance(column, dict):
+                    continue
+                aliases.update(value for value in [column.get("name"), column.get("alias")] if value)
+            for alias in aliases:
+                if not safe_dashboard_alias(alias):
+                    issue(
+                        f"{dashboard_label}/widgets[{widget_index}]: unsafe DataM result alias {alias!r}; "
+                        "use letters, numbers, underscores, or ordinary Chinese text"
+                    )
+
     result = {
         "path": str(path),
         "issues": issues,
@@ -755,6 +821,7 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
             "workflow_forms": workflow_forms,
             "association_metadata": association_metadata_count,
             "judge_rules": judge_rule_count,
+            "dashboards": dashboard_count,
         },
     }
 
