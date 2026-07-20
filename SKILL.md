@@ -34,6 +34,7 @@ These constraints are derived from the K6/Dabei decompiled services and must be 
 - Child-table components are real physical tables. A `childrenTable` field must have a same-named table DDL and its child fields' columns must exist in that DDL.
 - `aboutTable` fields should include helper storage columns such as display value plus `_ref_id` and, when needed, `_ref_child_id`. Text-only references are not a native business relation.
 - PolarDB-like sources may use InnoDB-style DDL while older observed packages use MyISAM. Prefer the source template's engine and charset; do not mix engines casually inside one package.
+- Ordinary print templates are stored on each `Form` as `stencils[]` and imported into `gen_table_stencil`; do not add top-level `stencils`. A template id must be a symbol placeholder whose symbol entry is `{"t":"COMMON","v":"<uuid>"}`, while `tableId` must point at the form placeholder (`{"t":"FORM",...}`) and `tenantId` should remain `@@{tenantId}`. Inside the stencil `template` JSON string, cell `schema` objects should preserve field placeholders such as `@@{symbols.[n]}` rather than expanding them to symbol-entry objects. App preview can fail with generic `errcode:9999` if newly appended symbols are raw strings instead of `SymbolEntry` objects.
 
 ## Project-to-DBA Design Discipline
 
