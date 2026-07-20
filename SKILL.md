@@ -35,6 +35,9 @@ These constraints are derived from the K6/Dabei decompiled services and must be 
 - `aboutTable` fields should include helper storage columns such as display value plus `_ref_id` and, when needed, `_ref_child_id`. Text-only references are not a native business relation.
 - PolarDB-like sources may use InnoDB-style DDL while older observed packages use MyISAM. Prefer the source template's engine and charset; do not mix engines casually inside one package.
 - Ordinary print templates are stored on each `Form` as `stencils[]` and imported into `gen_table_stencil`; do not add top-level `stencils`. A template id must be a symbol placeholder whose symbol entry is `{"t":"COMMON","v":"<uuid>"}`, while `tableId` must point at the form placeholder (`{"t":"FORM",...}`) and `tenantId` should remain `@@{tenantId}`. Inside the stencil `template` JSON string, cell `schema` objects should preserve field placeholders such as `@@{symbols.[n]}` rather than expanding them to symbol-entry objects. App preview can fail with generic `errcode:9999` if newly appended symbols are raw strings instead of `SymbolEntry` objects.
+- A Luckysheet print stencil needs browser-runtime sheet metadata, not only static `data`: generate `config`, `visibledatarow`, `visibledatacolumn`, `ch_width`, `rh_height`, and `celldata`. For every merged range, keep `config.merge`, the origin cell's full `mc`, and follower-cell `mc` caches aligned. `config.merge` alone can leave an otherwise valid stencil visually blank.
+- A print field for a child-detail row must use the native `childrenTable` schema wrapper with the nested child field. A flattened `childrenField` schema may import but will not repeat actual line records in print output. Bind system creation date to `sys_create_time`, not a synthetic field named `创建时间`.
+- Treat an empty print iframe or a preview with no rendered table as a renderer compatibility failure even when the saved stencil JSON is populated. On the observed Dabei renderer, declaration-element templates with a field cell merged across five columns rendered blank; preserve bindings but fall back to an unmerged two-column label/value layout and visually retest every template option.
 
 ## Project-to-DBA Design Discipline
 
@@ -287,6 +290,12 @@ Dashboard/DataM regression checks:
 - Keep SQL result aliases, view-model keys, and widget column names aligned and limited to letters, numbers, underscores, or ordinary Chinese text. Avoid `%`, `/`, parentheses, and other characters that require identifier quoting: DataM can wrap the configured SQL in an outer query without quoting those aliases, causing `/api/datam/api/view/getData` to fail even though the inner SQL is valid.
 - `mamselect` values are stored as JSON-array text. When a custom SQL dashboard reads a single-select column directly, normalize it to display text so the table shows `原料入库` instead of `["原料入库"]`.
 - Open every imported dashboard with seeded records, verify visible rows and values, and inspect both the `getData` response and browser console. Dashboard metadata/import success alone is not runtime proof.
+
+Print-template regression checks:
+
+- Use a real record containing every bound master field and at least one child-detail row. Open every template option from the runtime print action, not only the stencil designer or template-list endpoint.
+- Inspect the print iframe visually for a rendered table, expected field values, detail rows, totals, and unresolved `${...}` placeholders. A successful stencil query or populated `template` JSON is not proof that clicking `打印` renders content.
+- If one template is blank while another from the same form works, compare `sheet.column`, row/column runtime caches, `celldata`, cell-level `mc`, merge spans, and field schema wrapper type before changing form data or template IDs.
 
 Recommended runtime report:
 

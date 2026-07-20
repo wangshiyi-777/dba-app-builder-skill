@@ -274,6 +274,13 @@ Enables list-grid editing. It can optionally execute component validation, funct
 
 Supports multiple templates and syncing form style to a blank generated template. Important for contracts, inbound/outbound slips, customs docs, and sign-off forms.
 
+Observed print-renderer constraints from 佳俊物流 testing on 2026-07-20:
+
+- A stencil that saves and is returned by the authorized-template API can still preview as an empty `about:srcdoc` iframe. Treat this as a renderer failure and verify it from the runtime `打印` action with seeded data.
+- Luckysheet print layout requires `config`, visible row/column offsets, total width/height, and `celldata`. For a merge, emit the range in `config.merge`, the full `mc` record on the origin cell, and origin references on the covered cells.
+- For a repeating child table, the print cell schema must be a `childrenTable` wrapper carrying the nested child-field schema. The ordinary flattened `childrenField` representation does not produce repeatable rows.
+- The observed declaration-element renderer failed when value cells were merged across five columns. Use a normal two-column label/value layout with no merges for this document type if that failure recurs; preserve all field bindings and borders.
+
 ## Permission Settings
 
 Observed permissions page:
