@@ -1,6 +1,6 @@
 # Dabei/K6 Platform Design Notes
 
-Observed from a live tenant on 2026-07-16. This is not an official specification; treat it as field guidance for building `.dba` packages that behave like native Dabei/K6 apps.
+Observed from a live tenant on 2026-07-16 and expanded with PC/mobile platform walkthroughs on 2026-07-21. This is not an official specification; treat it as field guidance for building `.dba` packages that behave like native Dabei/K6 apps.
 
 ## Mental Model
 
@@ -40,13 +40,32 @@ Form card actions are hidden under the card's three-dot menu:
 
 App menu actions include rename/change icon, export app without business data, and uninstall app.
 
-Observed import entry on the workbench home page:
+Observed import entry on the PC app factory/application management page on 2026-07-21:
 
 - Click `新建应用`.
 - In the first modal, click the `创建空白应用` card.
 - In the second modal, switch from `新建应用` to `导入应用`.
-- Choose `创建新应用`, upload the `.dba` file, optionally rename the app, then confirm.
-- This path is distinct from direct app-management import flows; automation should follow the visible two-step modal when starting from the home page.
+- Import mode supports `创建新应用` and `覆盖原应用（会清空目标应用的业务数据）`.
+- Upload accepts `.dba` and `.dbt`.
+- `创建新应用` explicitly says it creates a new application and does not affect existing apps.
+- If using `覆盖原应用`, warn the user because target app business data will be cleared.
+
+App management observations from 2026-07-21:
+
+- Left side lists applications; right side lists the selected application's groups, forms, and dashboards.
+- The selected app can expose ordinary forms, workflow forms, and dashboards in the same group list.
+- Common page actions include `访问应用`, `新建分组`, `分组排序`, type filter, and form/dashboard search.
+- The `访问应用` route is the reliable way to discover runtime `sysId` and runtime form/menu ids after import.
+
+System/platform management observations from 2026-07-21:
+
+- Watermark settings support system-page watermark, exported-document watermark, print watermark, and attachment-image watermark. Content can include current user, company short name, custom content, and dates, with font/color/size/rotation/tile settings.
+- Approval settings include auto-open next todo after approval, overdue color display, task-center quick approval buttons, agree/reject display, approval sorting, and approval phrases.
+- Custom login page supports preset backgrounds and custom background images.
+- General settings include mobile title, whether list related-record details can be clicked, max PC list page size 200/500/1000, clear-all button visibility, login methods, attachment preview mode, new function-calculation scope, exported address-component format, mobile floating button visibility, and enterprise-join auto approval/review.
+- Plugin marketplace has "my plugins" and marketplace areas; a tenant can have no installed plugins.
+- Data factory exposes data flows, help docs, and new-data-flow entry. Use this for cross-form/external processing research before inventing heavy DBA-side logic.
+- Extension development exposes custom components, including form components, form buttons, list buttons, and list items.
 
 ## Designer URLs and Form Types
 
@@ -71,6 +90,12 @@ Design tabs:
 - List design.
 - Form settings.
 - Permission settings.
+
+Important runtime-id detail from 2026-07-21:
+
+- DOM class names on form cards can include a prefixed id-like value, for example class `a7d05...` while the actual runtime form id is `7d05...`.
+- Do not infer the real form id from CSS class names alone. Open the runtime form URL and read `#/container/<formId>?sys=<sysId>&id=<formId>`, or enter design from the runtime page's `设计` button.
+- The runtime page's `设计` button produced a correct design URL including `sysId`, `menusId`, `formType`, `designType`, `referer`, and `label`.
 
 ## Component Inventory
 
@@ -121,6 +146,12 @@ Observed settings:
 - Data range.
 - List buttons: add/new, delete, import, export, QR print, batch print.
 
+Observed on 2026-07-21:
+
+- If only one list tab exists, the platform warns that the tab will not be shown in the runtime list.
+- View styles include table, gallery, Gantt, floor plan, calendar, hierarchy, and kanban. Use these native views when they satisfy the requirement before inventing a separate kanban module.
+- List design includes data-range settings, which should be considered together with form permission settings for role-based visibility.
+
 DBA implications:
 
 - Preserve or rebuild `tabs`, `tabFieldReference`, and compatible `tabViews`; these are runtime-list metadata, not disposable import metadata.
@@ -168,6 +199,11 @@ Generation guidance:
 Observed description: after current-form data changes, automatically add, update, or delete data in other forms.
 
 Observed route: `#/formsetting/business-rule`.
+
+Observed 2026-07-21 list page affordances:
+
+- Business-rule page has operation records, a new-version toggle, an "only view enabled rules" filter, and a new-rule button.
+- Treat these as design-time controls. They do not prove runtime execution; still run create/update/delete data-flow tests.
 
 Observed new-rule trigger options:
 
@@ -256,6 +292,10 @@ Typical rules:
 
 Used for notifications after data change or actions. Useful for approval reminders, QC exceptions, and finance/shipping handoffs.
 
+Observed 2026-07-21:
+
+- The message-push page describes triggers after data changes or after a specific action. Use it for due-date reminders, procurement timeout reminders, finance overdue-payment reminders, and QC exception notices when the package can represent or preserve the rule metadata.
+
 ### External Links
 
 Observed capabilities: public query, external form filling, data sharing, link style, public query, password query, displayed content, query fields.
@@ -266,13 +306,27 @@ Useful for supplier/customer entry, customer sign-off, and external status query
 
 Pushes form data to a specified service address after data changes. Use for WMS, finance, customs, or ERP integrations when the target platform has endpoints.
 
+Observed 2026-07-21:
+
+- The data-push page includes a JSON sample action and a create-push-rule action.
+
 ### Quick Edit
 
 Enables list-grid editing. It can optionally execute component validation, function calculation, data linkage, data relation, data filling, and business rules. Good for status, price, inventory, and other high-frequency maintenance fields.
 
+Observed 2026-07-21:
+
+- Quick edit can run component validation, function calculation, data linkage, data relation, data filling, and business rules. When enabling it, test that list-grid edits trigger the same downstream automation as full form edits, or report the difference.
+
 ### Print Templates
 
 Supports multiple templates and syncing form style to a blank generated template. Important for contracts, inbound/outbound slips, customs docs, and sign-off forms.
+
+Observed 2026-07-21:
+
+- The print-template page describes runtime printing by template style, supports multiple templates, operation records, and creating new templates.
+- For forms created with the table designer, the platform may auto-create a blank print template that can synchronize the form style.
+- If runtime `打印` opens an empty view, first inspect whether a template exists, whether it was synchronized, whether the print action is bound to the expected template, and whether field schema bindings are renderer-compatible.
 
 Observed print-renderer constraints from 佳俊物流 testing on 2026-07-20:
 
@@ -294,6 +348,7 @@ Design guidance:
 
 - Permissions are not only field permissions. Include list buttons, form buttons, data range, and users/roles.
 - A logistics/ERP-style app should at least consider admin, sales, procurement, warehouse, QC, finance, shipping/docs, production, and read-only/audit roles.
+- Do not create a business module named "permission strategy" unless the customer explicitly needs a business record of permission requests. The platform already provides role authorization, form-button permissions, list-button permissions, data permissions, field permissions, and data range settings.
 
 ## Workflow Design
 
@@ -327,6 +382,12 @@ Workflow canvas observations:
 - A selected handling node exposes node name, description, node ID, upstream/downstream, node assignees, CC users, approval rules, field permissions, form-button settings, hang, submit, transfer, reject, return, temporary save, signature, add-sign, timeout, submit validation, signature opinion, transfer scope, batch approval, and handwritten-signature requiredness.
 - A workflow form can expose a flow-card management page before entering the canvas. Observed flow-card actions include basic information, flow design, flow copy, flow versions, flow disable, and flow delete.
 - The flow canvas palette can include start, handling, end, exclusive gateway, parallel gateway, inclusive gateway, and intermediate task node.
+
+Observed 2026-07-21 from a sales-contract workflow form:
+
+- The workflow-form design page states that one form can have multiple independent flows with different starters and business nodes.
+- Flow-card management exposes starter-field configuration, close flow, create flow, starter settings, operation records, basic information, flow design, flow copy, flow versions, flow disable, and flow delete.
+- The workflow canvas shows validate and publish controls. Do not publish during inspection unless explicitly requested.
 
 DBA workflow guidance:
 
@@ -367,6 +428,19 @@ Automation cautions:
 - Required selects must be selected; otherwise validation such as `此项为必填项` is a test-script problem, not necessarily a package problem.
 - Reproduce the frontend value shape for `mamselect`: submit a one-element array such as `["不合格"]`. The database stores JSON-array text and judge-rule triggers commonly compare against that array shape; a scalar-string API probe can produce a false rule failure.
 - Dropdowns showing `个` or `选项一/二/三` usually indicate cloned-template defaults/options. Clear `options.defaultValue` and `options.value`, and replace options with business values.
+
+PC/mobile platform walkthrough findings from 2026-07-21:
+
+- PC operation audit has three useful verification pages:
+  - Login logs: login person, login time, login platform, IP, location, result.
+  - Design records: operator, time, app, menu, operation description, result; useful for tracing app/form/rule/template changes.
+  - Operation records: operator, time, app, menu, operation description, result; useful for proving CRUD/test data mutations occurred.
+- Mobile/workbench URL shape: `/development/#/home/workbench`.
+- Mobile home includes AI assistant, global search, todo/handled/started/draft/informed entries, common forms, and my apps.
+- Mobile task center includes todo, suspended, handled, started, drafts, delegated, informed, common flows, and app-grouped flows.
+- Mobile "all apps" lists imported apps and can enter an app's form list.
+- Mobile "my" shows account/package quotas such as users, AI tokens, attachment usage, data flows, business rules, total records, data lookup, and OCR.
+- Mobile app form list shows ordinary forms, workflow forms, and dashboards together under app groups. When testing mobile support, open the latest imported app and verify the same modules appear as on PC.
 
 DataM dashboard cautions observed during 佳俊物流 v16-v17 testing on 2026-07-20:
 
