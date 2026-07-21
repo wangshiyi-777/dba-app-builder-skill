@@ -63,7 +63,8 @@ System/platform management observations from 2026-07-21:
 - Approval settings include auto-open next todo after approval, overdue color display, task-center quick approval buttons, agree/reject display, approval sorting, and approval phrases.
 - Custom login page supports preset backgrounds and custom background images.
 - General settings include mobile title, whether list related-record details can be clicked, max PC list page size 200/500/1000, clear-all button visibility, login methods, attachment preview mode, new function-calculation scope, exported address-component format, mobile floating button visibility, and enterprise-join auto approval/review.
-- Plugin marketplace has "my plugins" and marketplace areas; a tenant can have no installed plugins.
+- Plugin marketplace has "my plugins" and marketplace areas. Observed market plugins include DingTalk group robot, WeCom group robot, e签宝 electronic signature, invoice-management plugin, and Sencloud SMS notification. `我的插件` can be empty while `插件市场` still has installable plugins.
+- For ERP/logistics requirements, evaluate platform plugins before modeling everything as plain fields: group robots and SMS can support procurement timeout, payment overdue, QC exception, and handoff notifications; e签宝 may support formal electronic-signature scenarios; the invoice plugin may support invoice workflows.
 - Data factory exposes data flows, help docs, and new-data-flow entry. Use this for cross-form/external processing research before inventing heavy DBA-side logic.
 - Extension development exposes custom components, including form components, form buttons, list buttons, and list items.
 
