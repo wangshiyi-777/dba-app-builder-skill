@@ -22,6 +22,19 @@ Use this skill for `.dba` low-code app packages. Treat `.dba` as a private platf
 5. Clearly label generated `.dba` files as import-test artifacts. Platform import compatibility must be verified in the target system.
 6. Do not claim successful platform compatibility until the user confirms import worked or provides importer logs.
 7. Do not claim business-flow completeness from forms alone. A cross-module process is complete only when represented by platform-native related-record fields, child tables, business rules, workflow node settings, submit validations, or verified runtime behavior.
+8. For Dabei/K6/搭贝应用工厂 packages, classify every requested feature by proof level before calling it complete: `can_generate`, `api_verified`, `runtime_verified`, `platform_config_required`, or `not_safe_to_claim`. Use `references/dabei-platform.md` as the capability-boundary contract.
+
+## Dabei/K6 Capability Evidence Contract
+
+When the target is Dabei/K6/搭贝应用工厂, treat generated metadata as only the first proof layer. A form, rule, workflow, print template, dashboard, or permission setting is complete only at its highest proven evidence level:
+
+- `can_generate`: package JSON, symbol table, fields, DDL, list metadata, stencil/rule/DataM JSON, and local validation are coherent.
+- `api_verified`: the target tenant accepted the relevant API call, such as CRUD, rule save/enable, template query, or design setting save.
+- `runtime_verified`: real seeded records prove the user-facing behavior: related `_ref_id` storage, field carry-over, target-record mutation, workflow task movement, print rendering, dashboard data, permission visibility, or audit evidence.
+- `platform_config_required`: DBA can prepare placeholders, but tenant roles, plugins, workflow publishing, SMS/robot/signature setup, or other admin settings must be configured and retested.
+- `not_safe_to_claim`: the behavior has no proven exported sample, is unstable in runtime tests, or is contradicted by source/runtime evidence.
+
+Do not describe a feature as "已完成" for the customer unless it is `runtime_verified`, or the deliverable explicitly says which remaining tenant-side configuration/test is required.
 
 ## Source-Derived Platform Invariants
 

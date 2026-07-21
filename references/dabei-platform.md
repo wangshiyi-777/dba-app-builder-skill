@@ -19,6 +19,90 @@ app/group
 
 For generated packages, "imports successfully" is weaker than "works like a platform-native app." Feature completeness should include runtime lists, buttons, rules, workflow actions, and data flow.
 
+## Capability Boundary Levels
+
+When designing or reviewing a Dabei/K6 `.dba`, classify every requested feature by implementation confidence. This prevents saying "built" when only a form or field exists.
+
+| Level | Meaning | Acceptable evidence |
+|---|---|---|
+| `can_generate` | The DBA package can carry the metadata and local validation can check it. | Valid app JSON, aligned symbols, DDL, fields, tabs, stencils, rule JSON, or DataM JSON. |
+| `api_verified` | The target tenant accepted the relevant API and returned success. | Saved/enabled rule response, CRUD response, template query response, or design setting response. |
+| `runtime_verified` | The actual user-facing workflow works with real records. | Browser or API test showing target record mutation, `_ref_id` storage, workflow task movement, print rendering, dashboard data, or audit logs. |
+| `platform_config_required` | DBA can prepare fields/placeholders, but final behavior depends on tenant-side settings, plugin installation, roles, or workflow publishing. | Explicit platform configuration checklist and post-config test. |
+| `not_safe_to_claim` | The behavior is speculative, unstable, or absent from proven samples. | Report as a limitation until a platform-created sample or runtime proof exists. |
+
+For customer-facing status, use the highest proven level only. A form with fields is `can_generate`; a saved rule is at most `api_verified`; "complete" requires `runtime_verified`.
+
+## Source-Verified Architecture
+
+The `wechat-dump2` decompiled services confirm these platform boundaries:
+
+- `k6-web-service` is the runtime data engine. Form records are stored in relational physical tables named by `DesignForm.getTableName()`, and CRUD uses SQL operations such as `AddRecordOperation`, `DataGridRecordOperation`, `DeleteRecordOperation`, and `PrintRecordOperation`.
+- `k6-design-service` is the design-time metadata source for forms, fields, tabs, buttons, permissions, validation rules, linkage, association, push rules, external filling, quick edit, and data relation.
+- `k6-judge-service` stores rules in MongoDB and runs them through Easy Rules. Data writes in web-service publish judge messages to the `dsp_to_judge` route; rule save/enable is separate from runtime execution.
+- `k6-flow-service` stores process definitions/tasks in MongoDB and supports start, todo, done, transfer, add-sign, reject, return, revoke, cancel, urge, and approval comments. A usable imported workflow requires coherent model, definition, node, authority, button, and BPMN assets.
+- `datam-admin-starter` owns BI dashboards. Its SQL converter wraps configured SQL in outer `select ... from (...) tN` queries; unsafe aliases can break runtime even when inner SQL is valid.
+- `k6-data-service` is Excel import/export/print-file infrastructure, not the BI engine. It stages large exports and converts values through adapters such as select/date/user/aboutTable adapters.
+
+Generation implication: a `.dba` can reliably generate metadata and tables, but actual automation, workflow, print, dashboard, plugin, and permission behaviors require runtime proof.
+
+## Capability Matrix for Logistics/ERP DBA Generation
+
+| Requirement type | What DBA can usually generate | Runtime proof required before calling complete |
+|---|---|---|
+| Ordinary master data and transaction forms | Groups, forms, fields, child tables, DDL, tabs, list views, add/edit/delete/import/export buttons. | Open list, add/edit/delete one real record, confirm `errcode:0` or `success:true`. |
+| Related-record selection | `aboutTable` fields, display/search fields, helper columns ending `_ref_id` and `_ref_child_id`. | Select seeded master data in UI or matching API payload; query saved record and confirm display value plus refs. |
+| Data fill / auto carry-over | `options.dataFillList` cloned from proven selector structure. | Select a customer/product/supplier/order and verify filled fields in form and submitted payload. |
+| Child table storage | `childrenTable`, child DDL, `pid`, child field columns, print/query relation by parent id. | Save a parent with multiple child rows and query child table rows by `pid`. |
+| Child row to target-row automation | Rule metadata may support `INSERT_CHILD`, `DELETE_CHILD`, `batchAction`, `descartesAction`, and `childSteps`. | Must create a document with child rows, then query target rows and confirm each child-derived field is populated. Do not infer from save success. |
+| Main-form business rules | Judge rule JSON with trigger type, filters, action type, steps, enabled status. | Create/update/delete source record and query target form; inspect rule execution records if available. |
+| Inventory balance upsert | `UPDATE_OR_INSERT` action with match filters, update steps, and insert `elseSteps`. | Test first inbound creates one balance row; second inbound updates same row. |
+| Submit validation / duplicate checks | Design validation rules and field `noRepetition` when represented by a proven package. | Submit invalid data and confirm it blocks or prompts as intended. |
+| Workflow approvals | Workflow form shell plus model/definition/node settings/buttons/BPMN/authority metadata cloned from a proven sample. | `start_form` and buttons loading are not enough. `POST start` must create a process/todo, and at least one node action must complete. |
+| Print templates | `Form.stencils[]` with Luckysheet metadata and schema bindings. | Runtime print action renders nonblank output with field values, child rows, totals, approval comments if used, and no unresolved placeholders. |
+| Dashboards | DataM config, view SQL, widgets, safe aliases. | Open dashboard; verify charts/tables show seeded data and `getData` has no SQL/component errors. |
+| Message/SMS/robots | Rule or push metadata and plugin action placeholders. | Plugin installed and configured; trigger action creates a send record or visible notification. |
+| Permissions/data range | Role, field, button, list, and data-range settings when preserved from platform metadata. | Log in as each role or use operation/data-range evidence; verify visibility and disabled buttons. |
+
+## Source-Verified Rule Constraints
+
+The judge-service validator enforces these constraints and DBA generation should treat them as hard rules:
+
+- `UPDATE`, `DELETE`, and `UPDATE_OR_INSERT` actions require non-empty filters.
+- `INSERT`, `UPDATE`, and `UPDATE_OR_INSERT` actions require non-empty steps.
+- `UPDATE_OR_INSERT` requires non-empty `elseSteps`; otherwise first-time insert behavior is incomplete.
+- Trigger conditions require field name, component type, field value, and operator, and duplicate trigger fields are rejected except date-range start/end special cases.
+- Plugin actions such as DingTalk robot, WeCom robot, and SendCloud SMS are validated against installed plugin action config; missing or unavailable plugins block enabling.
+- Rules that target workflow forms need a process definition key unless explicitly configured for all definitions.
+- The engine performs deep/cycle checks. Cross-form rules can be rejected when they create a trigger loop.
+
+DBA packages should therefore include a rule contract for every rule: trigger form/event/filter, target form/action, filters, steps, elseSteps, continue-trigger behavior, plugin dependencies, and runtime test cases.
+
+## Source-Verified Print Constraints
+
+`PrintRecordOperation` confirms that print data retrieval can include:
+
+- main-form records selected by ids
+- child-table rows queried by `pid`
+- workflow progress and approval comments/signatures
+- current printer and print time
+- system creation date
+- field visibility filtering according to permissions
+- aggregate values from the default list view
+
+This means the data layer can support rich contract, invoice, packing, customs, label, and approval prints. The fragile layer is the template renderer: Luckysheet metadata, merges, cell schema wrappers, and child-table schemas must be runtime tested.
+
+## Source-Verified Association Constraints
+
+`AssociationServiceImpl` and `AssignValueConverter` show these behaviors:
+
+- Related-record queries read `aboutTableInfo.aboutFormKey`, target field keys, selected search fields, filters, and sort options.
+- References to target child-table fields join the target child table to the target main table by `pid`.
+- Assignment conversion can populate normal values, select-array text, user/org names, aboutTable display values, `_ref_id`, and `_ref_child_id`.
+- For child-table references, `_ref_id` can refer to parent id and `_ref_child_id` to child id.
+
+Therefore, generated relations must not be text-only. Keep display columns plus ref columns, and test both main-form and child-form relation payloads.
+
 ## Factory/App Management
 
 The factory side navigation observed:
