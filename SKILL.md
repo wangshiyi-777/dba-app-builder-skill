@@ -48,6 +48,8 @@ When working on any Dabei/K6 project, treat the customer requirement as an insta
 4. Prefer platform-native features over business-module workarounds. For example, use permission settings for data range, plugin/message rules for notifications, DataM/list views for dashboards, and workflow node settings for approvals.
 5. Keep project-specific decisions outside the generic platform rules. A project such as 佳俊物流 may provide examples and regression findings, but it must not narrow the skill's understanding of what the platform can do.
 6. For design-heavy requests, produce a designer mapping table before changing DBA JSON: requirement, designer entry, DBA object(s), API/source owner, runtime proof. Treat this as the source of truth for implementation scope.
+7. Separate the five designer surfaces before judging completion: form designer, list designer, form settings, permission designer, and flow designer. A requirement is incomplete if only fields exist while its native subsystem, such as rule, validation, print, DataM, permission, quick edit, plugin, external link, or flow node, is unconfigured or untested.
+8. For every related field, rule, validation, print template, dashboard, permission, and quick-edit configuration, name the expected runtime evidence before editing: selected `_ref_id`, carried values, target data mutation, blocked/allowed submit, visible print values, rendered chart data, hidden/visible field/button, or quick-edit-triggered rule execution.
 
 ## Dabei/K6 Capability Evidence Contract
 

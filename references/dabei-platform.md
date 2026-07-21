@@ -44,6 +44,23 @@ Observed designer behavior on 2026-07-21:
 
 Generation implication: every requirement should have a designer mapping row: requirement, designer surface, DBA object(s), source/API owner, and required runtime proof.
 
+### Designer Subsystem Contract
+
+Treat each designer page as a separate persistence and runtime subsystem. Do not collapse them into generic form fields.
+
+| Designer page | Confirmed UI/API behavior | DBA/generation requirement |
+|---|---|---|
+| Form designer | Components are grouped as basic, system, advanced, and custom. Observed components include text, number, address, textarea, radio, checkbox, attachment, image, date, select, multi-select, switch, rich text, location, signature, OCR, approval opinion, sequence, user/org/department selectors, upstream/downstream company, unique id, related form, related multi-select, child table, summary child table, summary, amount uppercase, geofence, tabs, embed, and AI analysis. | Generate `Field` with `options`, `columns`, `children`, `styleDetail`, `formatter`, `dbType`, and DDL. For child tables, update parent field, child fields, child DDL, and layout together. |
+| Field trigger probing | `FieldController` exposes `/fields/form/{formId}/triggers`, returning whether a field participates in `linkage`, `relation`, `associate`, `func`, or `judge`. | Before claiming a field has linkage, relation, association, formula, or rule behavior, verify the field trigger set or runtime behavior. |
+| List designer | `FormViewController` reads design views and `TabViewController` saves, enables, disables, copies, sorts, and renders grid settings. | Keep `tabs`, `tabFieldReference`, `tabViews`, list buttons, view keys, search fields, show fields, sortable fields, and left-tree settings aligned. |
+| Form settings | The left menu is the true feature map: field permission, related list, print template, business rule, submit validation, message push, external link/query, QR label, data push, quick edit, plugin integration, collaboration, and assessment. | Generate and verify each subfeature through its native object/API. Do not add business forms for native platform settings. |
+| Business rule designer | New-rule designer is a full-screen graph editor. Trigger types observed: create record, update record, delete record, delete child-table record, custom button, scheduled repeat, scheduled once, and form-date-field recurring trigger. | A rule must include trigger form/type, filters, target action(s), assignments, enable status, and runtime execution proof. Save/enable is not enough. |
+| Submit validation | `ValidateRuleController.createValidateRule` parses the first `#{...}` field reference from formula and rejects rules without a detectable field. | Validation metadata must contain a parseable formula with real field references and must be tested with both blocked and allowed submissions. |
+| Permission designer | `FormAuthority` stores `subjects`, `options`, `enable`, `scoped`, and `filterGroups`. | Data isolation belongs to platform role/data permissions and multi-account tests. A DBA can carry permission metadata only when cloned from a proven shape; final proof requires role login. |
+| Quick edit | `FormQuickEditHelper` initializes `verify`, `func`, `linkage`, `associate`, `judge`, and `relation`; runtime `FieldQuickEditHelper` maps them to validation/rule/function execution flags. | Test list quick edit separately from normal edit. When quick edit must trigger rules or carry-over, ensure the relevant options are enabled and verify target behavior. |
+
+Designer-first acceptance rule: no capability should be marked complete until its owning designer subsystem has either runtime proof or an explicit `platform_config_required` note.
+
 ## Platform-Wide Development Rule
 
 Use this file as a platform capability contract, not as a project note. A customer app such as 佳俊物流 is only one implementation sample. For every new project, first map the requirement to the platform layer that owns the behavior, then decide what can be generated in a DBA package and what must be configured or verified in the tenant.
