@@ -22,7 +22,29 @@ Use this skill for `.dba` low-code app packages. Treat `.dba` as a private platf
 5. Clearly label generated `.dba` files as import-test artifacts. Platform import compatibility must be verified in the target system.
 6. Do not claim successful platform compatibility until the user confirms import worked or provides importer logs.
 7. Do not claim business-flow completeness from forms alone. A cross-module process is complete only when represented by platform-native related-record fields, child tables, business rules, workflow node settings, submit validations, or verified runtime behavior.
-8. For Dabei/K6/搭贝应用工厂 packages, classify every requested feature by proof level before calling it complete: `can_generate`, `api_verified`, `runtime_verified`, `platform_config_required`, or `not_safe_to_claim`. Use `references/dabei-platform.md` as the capability-boundary contract.
+8. For Dabei/K6/搭贝应用工厂 packages, start from the platform-wide capability model, not from one customer's app. Decide whether a requirement belongs to form/field metadata, list design, business rules, workflow, DataM, print, plugins, permissions, tenant system settings, or external integration before editing a DBA.
+9. For Dabei/K6/搭贝应用工厂 packages, classify every requested feature by proof level before calling it complete: `can_generate`, `api_verified`, `runtime_verified`, `platform_config_required`, or `not_safe_to_claim`. Use `references/dabei-platform.md` as the capability-boundary contract.
+
+## Dabei/K6 Platform-First Development Workflow
+
+When working on any Dabei/K6 project, treat the customer requirement as an instance of the platform, not as the whole platform. Before designing forms or changing JSON:
+
+1. Map each requirement to a platform capability layer:
+   - app/group/form/field/DDL
+   - list views, tabs, filters, buttons, import/export, QR/print buttons
+   - related records, data fill, data linkage, related lists
+   - child tables, summaries, formula calculations, submit validations
+   - business rules, scheduled rules, custom-button rules
+   - workflow models, node permissions, node buttons, approval actions, signatures
+   - print templates and QR label templates
+   - DataM views, widgets, dashboards, dashboard sharing
+   - plugin notifications/signatures/invoices/SMS/robots
+   - role/data permissions, field permissions, tenant system settings, audit
+   - external filling/query links, data push, collaboration, custom components
+2. For each layer, decide whether the DBA package can carry the configuration, whether tenant-side configuration is required, and what runtime proof is needed.
+3. Use live platform UI and source/API evidence when available. A feature is not "implemented" because the current customer app happens to have a similarly named module.
+4. Prefer platform-native features over business-module workarounds. For example, use permission settings for data range, plugin/message rules for notifications, DataM/list views for dashboards, and workflow node settings for approvals.
+5. Keep project-specific decisions outside the generic platform rules. A project such as 佳俊物流 may provide examples and regression findings, but it must not narrow the skill's understanding of what the platform can do.
 
 ## Dabei/K6 Capability Evidence Contract
 

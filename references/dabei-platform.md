@@ -2,6 +2,92 @@
 
 Observed from a live tenant on 2026-07-16 and expanded with PC/mobile platform walkthroughs on 2026-07-21. This is not an official specification; treat it as field guidance for building `.dba` packages that behave like native Dabei/K6 apps.
 
+## Platform-Wide Development Rule
+
+Use this file as a platform capability contract, not as a project note. A customer app such as 佳俊物流 is only one implementation sample. For every new project, first map the requirement to the platform layer that owns the behavior, then decide what can be generated in a DBA package and what must be configured or verified in the tenant.
+
+Do not create business modules to replace native platform features unless the user explicitly wants an auditable business record. Examples:
+
+- Use platform role/data permissions, field permissions, list-button permissions, and tenant settings for access control; do not create a "permission strategy" form for normal permissions.
+- Use message push, plugin integration, DingTalk/WeCom robots, or SMS plugins for reminders; do not model reminders as passive text fields.
+- Use workflow node settings for approvals, node buttons, submit validation, field permissions, signatures, transfer/reject/return, timeout, and batch approval; do not claim approval from a status field alone.
+- Use related records, data fill, data linkage, and related lists for master-data carry-over; do not use plain text fields as the only business relation.
+- Use DataM dashboards and native list views for analysis/kanban/calendar/Gantt requirements; do not satisfy dashboard requests with static data tables only.
+- Use print templates and QR label templates for documents/labels; do not treat an attachment field as a printable template.
+- Use external filling/query, data push, collaboration, and plugins for cross-enterprise or external-system interaction.
+
+## Platform Technical Stack and Service Layers
+
+The decompiled `wechat-dump2` source and live UI show a layered low-code platform:
+
+| Layer | Main responsibility | Source/API evidence | DBA implication |
+|---|---|---|---|
+| PC app factory | App/group/form/dashboard management, app import/export, form design entry | `/factory/#/appManage`, app import UI, app/form cards | DBA can carry app structure, but imported runtime ids must be rediscovered after import. |
+| Runtime app | End-user list pages, add/edit/delete, related selectors, print, workflow task entry | `k6-web-service`, `/data_grids`, `/data/record/*`, `/api/web/form/common/data/*` | CRUD/list behavior must be verified with real records and actual runtime ids. |
+| Design service | Forms, fields, DDL metadata, tabs/list views, permissions, validation, print stencils, external filling, quick edit, data push | `k6-design-service`, `StencilController`, `ValidateRuleController`, `FormAuthorityController`, `QuickEditController`, `DataPushRuleController`, `DesignExternalFillingController` | Generate metadata only when it matches observed exported shapes; use local validation plus runtime verification. |
+| Rule engine | Data-change, scheduled, and custom-button automation | `k6-judge-service`, `/api/judge/design/rule/*`, Easy Rules, MongoDB rule docs | Save/enable success is metadata proof only; target record mutation is required. |
+| Workflow engine | Process definitions, task lifecycle, node actions, approval history | `k6-flow-service`, `/processes_start`, flow definitions/start/todo task APIs | Imported workflow shells are risky; real start and node submit are required. |
+| DataM BI | SQL views, widgets, dashboards, dashboard sharing | `datam-admin-starter`, `/api/view/*`, `/api/widget/*`, `/api/dashboard/*` | Dashboard JSON must use safe aliases and be opened through runtime dashboard routes with seeded data. |
+| Data import/export | Excel import/export staging, file export, adapters for select/date/user/aboutTable values | `k6-data-service` and export services | Template import/export is platform infrastructure; generated forms must keep component storage shapes compatible. |
+| Plugin/SNS | Message rules, DingTalk/WeCom robots, SMS, e-signature, invoice plugin actions | `k6-sns-service`, `k6-plugin-service`, marketplace UI | Plugin features are `platform_config_required` until installed/configured and triggered. |
+| Unite/system settings | Watermarks, login settings, approval settings, audit logs | `k6-unite-service`, `/admin/audit/*`, watermark models | Tenant-wide configuration cannot be fully delivered by a DBA package. |
+
+Implementation logic:
+
+- Form data is stored in physical relational tables named by `DesignForm.tableName`; field columns and top-level DDL must match.
+- Child tables are separate physical tables with parent linkage such as `pid`; they are not JSON blobs inside the parent record.
+- Related records store display text plus helper refs such as `<field>_ref_id` and sometimes `<field>_ref_child_id`; text-only copies are not native relations.
+- Single-select values are often stored as JSON-array text such as `["合格"]`; API/rule tests must use frontend-compatible shapes.
+- Business rules are persisted separately from form metadata and executed asynchronously after data writes publish judge messages.
+- Workflow definitions, node settings, BPMN assets, permissions, buttons, and process keys must be coherent together. Start-form loading is not proof of start success.
+- Print templates are Luckysheet-like stencil JSON attached to forms and rendered at runtime; saved template JSON is not proof of visible output.
+- DataM wraps SQL in generated outer queries; unsafe aliases such as names containing `%`, `/`, parentheses, or punctuation can break runtime.
+- System settings, plugin installation, roles, and permission subjects are tenant configuration and must be verified in the target tenant.
+
+## Platform Capability Map
+
+Use this map before designing any project. Each capability must be assigned a proof level from the capability-boundary table below.
+
+| Platform area | Observed capabilities | Implementation approach | Completion proof |
+|---|---|---|---|
+| App management | Create/import/export apps, app groups, ordinary forms, workflow forms, dashboards, visit runtime app | DBA package app/group/form/dashboard metadata plus platform import | Import succeeds, app opens, every menu resolves to runtime list/dashboard. |
+| Form design | Text/number/date/select/radio/checkbox/address/attachment/image/rich text/location/signature/OCR/system fields/related records/child tables/summary/amount uppercase/geofence/embed/AI analysis | Clone component metadata from proven samples and keep DDL aligned | Add/edit one record per important component and inspect stored payload. |
+| List design | Tabs, table/gallery/Gantt/floor/calendar/hierarchy/kanban views, filters, fields, grouping, sorting, left tree, buttons, import/export, QR print, batch print, data range | Preserve `tabs`, `tabFieldReference`, `tabViews`, button refs, view settings | List opens, query succeeds, buttons display according to permissions. |
+| Related data | Related record, related multi-select, data fill, data linkage, related lists | Use `aboutTable`, helper ref columns, selector `dataFillList`, related-list settings | Select seeded data in UI, verify auto-filled fields and `_ref_id` payload. |
+| Formula/validation | New function calculation, formula submit validation, block or warn behavior | Use platform formula/validate-rule metadata cloned from samples | Submit invalid data and confirm block/prompt; submit valid data succeeds. |
+| Business rules | Add/update/delete target data, delete child-table trigger, custom button trigger, scheduled/repeating/date triggers, execution logs | Use judge rule JSON with trigger/action/filter/steps/elseSteps and plugin dependencies | Trigger source record; target record is created/updated/deleted as expected. |
+| Workflow | Multiple flows per form, starters, node assignees, approval rules, CC, field permissions, buttons, submit validation, transfer/reject/return, temp save, add-sign, timeout, signature, batch approval, publish/version management | Prefer platform-created workflow samples; rewrite ids/process keys/BPMN coherently | `POST start` creates process/todo; at least one node action succeeds and audit/task state changes. |
+| Print/QR | Multiple print templates, sync form style, operation records, QR labels, batch/QR print | Form `stencils[]`, QR stencil metadata, Luckysheet runtime caches | Runtime print action renders field values, child rows, totals, QR/labels. |
+| Dashboards/DataM | SQL/data views, widgets, dashboards, chart/table rendering, sharing | DataM views/widgets/dashboard JSON with safe aliases and synchronized model keys | Open runtime dashboard via menu/`#/dashboard/<id>`; `getData` succeeds and charts show seeded values. |
+| Plugins/messages | Message push, plugin integration, DingTalk robot, WeCom robot, e-signature, invoice plugin, SMS | Message rules, judge plugin actions, plugin parameter mapping | Plugin installed/configured; trigger produces notification/signature/invoice/SMS evidence. |
+| Permissions/security | Role authorization, form/list button permissions, data permissions, field permissions, data range, watermarks, export/print/image watermarks, login methods, audit | Platform permission pages and tenant system settings | Test with each role/account; audit shows operations; unauthorized fields/buttons/data hidden. |
+| External/collaboration | External filling, public/password query, data sharing, data push, upstream/downstream collaboration, custom components | External filling settings, push rules, collaboration settings, custom component registry | External link or endpoint works with expected field permissions and payload. |
+| Mobile runtime | Workbench, task center, all apps, my account/quotas, common forms/flows, app form list | Same app metadata plus mobile layout settings | Mobile page shows app/forms/tasks; create/handle key records on mobile when required. |
+
+## What Can Be Implemented Reliably
+
+Use these categories when answering "can this be done?"
+
+- **Reliable in DBA package when cloned/validated**: app/group/form/field layout, component metadata, physical DDL, child tables, list tabs/views/buttons, ordinary CRUD forms, basic related-record columns, basic print/DataM JSON shape, basic workflow shells from proven exports.
+- **Feasible but must be runtime verified**: data fill after selecting related records, child-table save/query, business-rule mutations, inventory/ledger/balance automation, workflow start and node handling, print rendering, DataM chart data, quick edit triggering validations/rules, external links.
+- **Requires tenant/platform configuration**: roles/users/data range by account, watermarks, login methods, plugin installation and credentials, SMS/robot/e-signature/invoice plugins, cross-tenant import strategy, system-wide approval phrases, page size/export settings.
+- **Not safe to claim from DBA alone**: legal-grade e-signature, SMS delivery, role isolation across multiple accounts, workflow reliability, dashboard correctness, child-table rule fan-out, OCR recognition quality, external-system integration, bulk import templates, or multilingual runtime switching unless the exact tenant feature is configured and tested.
+
+## Project Design Pattern
+
+For any business system on Dabei/K6:
+
+1. Convert requirements into platform capabilities first, then into forms.
+2. Keep master data and transaction documents separate, but use native related records to connect them.
+3. Use one physical form/table for a unified business entity when the platform can distinguish types with fields. Example pattern: product and material can share one `产品物料档案` with a type field, while BOM child rows select only type `物料`.
+4. Use child tables for document lines and BOM lines; use separate ledger/balance/state forms only when downstream querying/reporting needs them.
+5. Use business rules for system-generated downstream records, and include a verification case for every rule branch.
+6. Use workflow only for human approval/task movement; keep high-risk stock and ledger mutation in ordinary forms/rules unless workflow execution has been proven.
+7. Use submit validation for required details, duplicate document numbers, amount/stock constraints, and exception completeness.
+8. Use DataM dashboards for KPI/chart requirements and native list kanban/calendar/Gantt for operational views.
+9. Use print templates for all documents the user expects to print; attachment upload is only archive storage.
+10. Put permissions and data isolation into platform settings and role tests, not business tables.
+
 ## Mental Model
 
 Do not model the platform as only forms, fields, and SQL tables. A usable app is closer to:
@@ -45,6 +131,48 @@ The `wechat-dump2` decompiled services confirm these platform boundaries:
 - `k6-data-service` is Excel import/export/print-file infrastructure, not the BI engine. It stages large exports and converts values through adapters such as select/date/user/aboutTable adapters.
 
 Generation implication: a `.dba` can reliably generate metadata and tables, but actual automation, workflow, print, dashboard, plugin, and permission behaviors require runtime proof.
+
+## Source/API Capability Index
+
+Use this index when researching implementation logic or debugging runtime behavior. Endpoint prefixes can differ behind gateways, but these controller mappings identify the platform owner of each feature.
+
+| Capability | Main source files | Observed mappings / APIs | Development rule |
+|---|---|---|---|
+| Runtime list/query | `k6-web-service/.../DataGridResource.java`, `DataGridStreamResource.java`, `DataRecordController.java` | `/data_grids`, `/data_grids/quick`, `/stream_data_grids`, `/data/record/form_record`, `/data/record/queryColumnsByIds`, `/data/record/select_record_columns`, `/data/record/range_filter` | Open list pages and query records with imported runtime ids; table/field mismatches surface here. |
+| Runtime add/update/delete | `k6-web-service/.../CommonDataResource.java`, data operations | `/api/web/form/common/data/addRecord`, `/api/web/form/common/data/updateRecord`, `/api/web/form/common/data/batch/deleteRecord`, custom button rule trigger | CRUD success plus list回查 is the minimum ordinary-form proof. |
+| Related records/data fill | `AssociationServiceImpl`, `AssignValueConverter`, web `BusinessJudgeController` helpers | `/data/businessJudge/formReference`, `/data/businessJudge/data/form/*`, related selector payloads | Verify selected display text plus `_ref_id`/`_ref_child_id`; verify carried fields in submit payload. |
+| Print templates | `k6-design-service/.../StencilController.java`, `k6-web-service/.../PrintRecordOperation.java` | `stencils/add`, `stencils/update`, `stencils/table/{tableId}`, `stencils/table/{tableId}/auth`, `stencils/{id}/authority` | Template list/auth success is not enough; click runtime print and inspect visible values. |
+| QR labels | `QrcodeStencilController.java`, `CommonDataResource.java` | `qrcodeStencils/add`, `qrcodeStencils/update`, `qrcodeStencils/forms/{formKey}/qrcodeStencilDetail`, `/checkQrcodeStencilLimit`, `/printQrcode` | QR label config must render with real record data. |
+| Submit validation | `ValidateRuleController.java`, web `ValidateRuleController.java` | `/validateRule/createValidateRule`, `/validateRule/getValidateRuleByTableId`, `/validateRule/updateValidateRule`, `/data/validate/{formId}/fields` | Test both invalid and valid submissions; formula metadata alone is not proof. |
+| Business rules | `k6-judge-service/.../DesignController.java`, `DataController.java`, `TriggerController.java` | `/api/judge/design/rule/tabs`, `/rule/pageQuery`, `/rule/validate`, `/rule/save`, `/rule/handleStatus`, `/send/plugin`, `/data/rule/form_change` | Save/enable only proves design acceptance; target mutation and execution logs prove runtime. |
+| Message rules | `k6-sns-service/.../MessageRuleController.java` | `/message/rule/page`, `/message/rule/edit`, `/message/rule/{id}`, `/message/rule/alterStatus` | Message configuration must be triggered and visible; plugin channels require plugin setup. |
+| Workflow definitions/tasks | `k6-flow-service/.../ProcessStartResource.java`, form/task resources | `/processes_start`, `/{processId}/cancel`, `/{processId}/urge`, `/history/{processId}`, flow definition start/start_form/buttons/task submit endpoints | Start-form/buttons loading is weak proof; actual start plus one task action is required. |
+| Permissions | `FormAuthorityController.java`, auth service integrations | `/form_authorities`, `/form_authorities/{id}`, copy/delete/update subjects, enable/disable | Verify with roles/accounts; do not model permissions as business data. |
+| Quick edit | `QuickEditController.java` | `/forms/{form_id}/quick_edit` GET/POST | Confirm whether quick edit triggers validation, data fill, and business rules as configured. |
+| External filling/query | `ExternalFillingResource.java`, `DesignExternalFillingController.java`, `DataExternalController.java` | `/_external_fillings/{form_id}`, enable/disable/password/fields/share options, `/external_fillings/{form_id}/records` | Treat external links as configured services; test field permissions and external submission/query. |
+| Data push | `DataPushRuleController.java` | `/data/push_rules?form_id=...&method_type=...`, `/_ref_form_ids` | Push rules need target service verification; package metadata alone is not integration proof. |
+| Dashboards/DataM | `ViewRest.java`, `WidgetRest.java`, `DashboardRest.java`, `DashboardWidgetRest.java` | `/api/view/getData`, `/api/view/executeSql`, `/api/view/createView`, `/api/widget/*`, `/api/dashboard/*`, `/api/dashboardWidget/*` | Use safe aliases and open dashboard through runtime route/menu with seeded data. |
+| Audit | `k6-unite-service/.../AuditAdminController.java`, `AuditApiController.java` | `/admin/audit/page`, `/admin/audit/loginLog`, `/admin/audit/operateLog`, `/admin/audit/formOperateLog` | Use audit as evidence of design operations, login/account tests, and CRUD/rule-trigger results. |
+| Watermarks/system settings | `Watermark.java`, `WatermarkHelper.java`, unite system settings | PC routes under `/factory/#/systemConfig/*` | Tenant-level setting; document required config and verify export/print/image effects. |
+| Plugins | `k6-plugin-service`, judge plugin action mappers, marketplace UI | Plugin action validation, plugin push data endpoints | Plugin action can be blocked if plugin is missing; mark as `platform_config_required` until configured. |
+
+## Observed PC/Mobile Routes
+
+Use real routes discovered from the platform UI, not guessed hashes:
+
+- PC app factory: `/factory/#/appManage`.
+- Plugin management: `/factory/#/pluginManage`, with tabs `我的插件` and `插件市场`.
+- Process management: `/factory/#/processManage`; direct `#/flowManage` did not render in the observed tenant.
+- Data factory: `/factory/#/shujuyingyong/model`.
+- Extension/component management: `/factory/#/extendDevelop/index`.
+- System config: `/factory/#/systemConfig/watermarkManage`, `/approveLanguage`, `/customLogin`, `/sysToConfigure`.
+- Audit: `/factory/#/operationalAudit/loginLog`, `/designRecord`, `/operationRecord`.
+- Runtime mobile/workbench: `/development/#/home/workbench`, `/home/approval`, `/home/apps`, `/home/user`.
+- Runtime app form: `/dsp_base_app/index.html?sys=<sysId>#/container/<formId>?sys=<sysId>&id=<formId>`.
+- Runtime dashboard: prefer menu click or `#/dashboard/<dashboardId>`; direct `#/container/<dashboardId>` can render blank for dashboards.
+- Form designer: `/design/#/home?sysId=<sysId>&menusId=<formId>&formType=<0|1>&designType=0`.
+- List designer: `/design/#/formlist?...`.
+- Form settings examples: `/design/#/formsetting/field-permission?...`, `/formsetting/link-list`, `/formsetting/print-list`, `/formsetting/business-rule`, `/formsetting/submit-check`, `/formsetting/message-push`, `/formsetting/form-export`, `/formsetting/qrcode-set`, `/formsetting/data-push`, `/formsetting/data-edit`, `/formsetting/plugin-integration`, `/formsetting/data-cooperate`.
 
 ## Capability Matrix for Logistics/ERP DBA Generation
 
