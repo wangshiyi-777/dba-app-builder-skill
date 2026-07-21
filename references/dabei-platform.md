@@ -1,6 +1,26 @@
 # Dabei/K6 Platform Design Notes
 
-Observed from a live tenant on 2026-07-16 and expanded with PC/mobile platform walkthroughs on 2026-07-21. This is not an official specification; treat it as field guidance for building `.dba` packages that behave like native Dabei/K6 apps.
+Observed from a live tenant on 2026-07-16 and expanded with PC/mobile platform walkthroughs and runtime probes on 2026-07-21. This is not an official specification; treat it as field guidance for building `.dba` packages that behave like native Dabei/K6 apps.
+
+## Verified Platform Probe Protocol
+
+Before claiming a Dabei/K6 feature is complete, run or cite evidence from all relevant layers. A customer app can be used as a sample, but it is not the platform model.
+
+1. **PC platform UI**: verify the capability exists in the app factory, designer, form settings, process center, plugin market, DataM/data factory, system settings, or audit.
+2. **Source/API owner**: identify the service/controller responsible for the capability. Use web-service for runtime CRUD/list/print data, design-service for metadata/settings, judge-service for business rules, flow-service for approvals, sns/plugin-service for notifications/plugins, datam-admin for dashboards, and unite/supply services for system/audit.
+3. **Runtime data proof**: create or reuse clearly labeled test records and verify the user-facing result: list query, `_ref_id` storage, carried fields, child rows, target mutations, workflow task movement, print iframe content, dashboard data, or audit log.
+4. **Tenant config proof**: for permissions, plugins, SMS/e-signature, login/watermark/system settings, or cross-company collaboration, do not claim completion until the tenant setting is configured and tested with the right users/accounts.
+5. **Evidence file**: write a project report with the highest proof level per feature: `observed_ui`, `source_verified`, `api_verified`, `runtime_verified`, `platform_config_required`, or `not_safe_to_claim`.
+
+Observed stable evidence from the 2026-07-21 full probe:
+
+- PC factory pages are reachable for app management, plugin management/market, process management, data factory, extension development, system configuration, and audit.
+- Form/list/flow/auth designers expose component, view, button, permission, and workflow controls.
+- Form settings expose field permission, related list, print template, business rule, submit validation, message push, external link/query, QR label, data push, quick edit, plugin integration, collaboration, and assessment pages.
+- Runtime ordinary forms can perform CRUD through `/api/web/form/common/data/*` and list through `/api/web/data_grids` when tabs/views/table DDL are aligned.
+- Runtime DataM dashboards must be opened through the imported app menu or runtime-resolved dashboard id. Direct DBA package ids can render blank after import.
+- Runtime print completion requires opening a real record's print preview and confirming iframe content contains bound values. Template-list success is only metadata proof.
+- Mobile `/development/#/home/workbench`, `/home/approval`, `/home/apps`, and `/home/user` show app/workflow/task/account surfaces; mobile actions still require per-project runtime tests.
 
 ## Platform-Wide Development Rule
 

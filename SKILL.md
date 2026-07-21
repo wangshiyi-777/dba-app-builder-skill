@@ -24,6 +24,7 @@ Use this skill for `.dba` low-code app packages. Treat `.dba` as a private platf
 7. Do not claim business-flow completeness from forms alone. A cross-module process is complete only when represented by platform-native related-record fields, child tables, business rules, workflow node settings, submit validations, or verified runtime behavior.
 8. For Dabei/K6/搭贝应用工厂 packages, start from the platform-wide capability model, not from one customer's app. Decide whether a requirement belongs to form/field metadata, list design, business rules, workflow, DataM, print, plugins, permissions, tenant system settings, or external integration before editing a DBA.
 9. For Dabei/K6/搭贝应用工厂 packages, classify every requested feature by proof level before calling it complete: `can_generate`, `api_verified`, `runtime_verified`, `platform_config_required`, or `not_safe_to_claim`. Use `references/dabei-platform.md` as the capability-boundary contract.
+10. When the user asks to understand or verify the Dabei/K6 platform itself, run a platform-wide probe instead of inspecting only the current customer app. Cover PC factory/designer/settings, runtime app forms, workflow/task surfaces, DataM dashboards, print rendering, mobile routes, source/API owners, and tenant-configuration boundaries. Record the highest evidence level per capability.
 
 ## Dabei/K6 Platform-First Development Workflow
 
@@ -57,6 +58,15 @@ When the target is Dabei/K6/搭贝应用工厂, treat generated metadata as only
 - `not_safe_to_claim`: the behavior has no proven exported sample, is unstable in runtime tests, or is contradicted by source/runtime evidence.
 
 Do not describe a feature as "已完成" for the customer unless it is `runtime_verified`, or the deliverable explicitly says which remaining tenant-side configuration/test is required.
+
+For platform-wide capability research, use these more explicit evidence labels in reports:
+
+- `observed_ui`: a PC/mobile page or setting is visible, but no write or runtime behavior was verified.
+- `source_verified`: decompiled source or frontend endpoint snippets identify the service/API owner.
+- `api_verified`: the target tenant accepted a relevant API operation and response was captured.
+- `runtime_verified`: real UI or seeded data proves the user-facing behavior.
+- `platform_config_required`: the platform supports it, but plugins, roles, accounts, tenant settings, external endpoints, or credentials must be configured and retested.
+- `not_safe_to_claim`: do not sell it as working yet.
 
 ## Source-Derived Platform Invariants
 
