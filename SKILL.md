@@ -31,6 +31,7 @@ Use this skill for `.dba` low-code app packages. Treat `.dba` as a private platf
 When working on any Dabei/K6 project, treat the customer requirement as an instance of the platform, not as the whole platform. Before designing forms or changing JSON:
 
 1. Map each requirement to a platform capability layer:
+   - designer surface ownership: form designer, list designer, form settings, permission designer, or flow designer
    - app/group/form/field/DDL
    - list views, tabs, filters, buttons, import/export, QR/print buttons
    - related records, data fill, data linkage, related lists
@@ -46,6 +47,7 @@ When working on any Dabei/K6 project, treat the customer requirement as an insta
 3. Use live platform UI and source/API evidence when available. A feature is not "implemented" because the current customer app happens to have a similarly named module.
 4. Prefer platform-native features over business-module workarounds. For example, use permission settings for data range, plugin/message rules for notifications, DataM/list views for dashboards, and workflow node settings for approvals.
 5. Keep project-specific decisions outside the generic platform rules. A project such as 佳俊物流 may provide examples and regression findings, but it must not narrow the skill's understanding of what the platform can do.
+6. For design-heavy requests, produce a designer mapping table before changing DBA JSON: requirement, designer entry, DBA object(s), API/source owner, runtime proof. Treat this as the source of truth for implementation scope.
 
 ## Dabei/K6 Capability Evidence Contract
 

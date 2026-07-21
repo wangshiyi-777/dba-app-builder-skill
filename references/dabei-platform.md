@@ -22,6 +22,28 @@ Observed stable evidence from the 2026-07-21 full probe:
 - Runtime print completion requires opening a real record's print preview and confirming iframe content contains bound values. Template-list success is only metadata proof.
 - Mobile `/development/#/home/workbench`, `/home/approval`, `/home/apps`, and `/home/user` show app/workflow/task/account surfaces; mobile actions still require per-project runtime tests.
 
+## Designer-First DBA Model
+
+Dabei/K6 DBA generation should be driven by the platform designer model. Do not start from a business module list and then append fields; first decide which designer surface owns each behavior.
+
+| Designer surface | Runtime/design objects | DBA generation rule |
+|---|---|---|
+| Form designer | `Form`, `Field`, `Field.options`, `Field.children`, `styleDetail`, `addOption`, `editOption`, `mobileLayout`, DDL tables | Generate fields, physical columns, child tables, layout, add/edit permissions, defaults, formulas, component options, and mobile layout together. |
+| List designer | `tabs`, `tabViews`, `tabFieldReference`, list buttons, data range, grouping/sorting/filter/search settings | A form without aligned list metadata can import but fail or feel incomplete at runtime. |
+| Form settings | print stencils, related lists, validate rules, business rules, message rules, external links, QR labels, data push, quick edit, plugins, collaboration, assessment | These are separate platform subsystems, not ordinary fields. Use their native metadata/API and runtime tests. |
+| Permission designer | `form_authorities`, field permissions, form buttons, list buttons, data permissions, subjects | Use platform permissions; final proof requires role/account tests. |
+| Flow designer | flow models, definitions, BPMN, node settings, node buttons, node field permissions, node submit validations | Enabling flow changes the ownership of field permissions, business rules, validations, messages, external links, and authorization. |
+
+Observed designer behavior on 2026-07-21:
+
+- Form designer exposes basic/system/advanced/custom components plus form title alignment, form width, mobile form layout, mobile list layout, new function calculation, advanced settings, and table name.
+- List designer exposes table, gallery, Gantt, floor, calendar, hierarchy, and kanban view types; grouping, multi-field sorting, left tree, operation column, checkbox column, header search, header wrapping, mobile submitter display, data range, and list buttons.
+- Form settings expose field permissions, related lists, print templates, business rules, submit validations, message push, external filling/query, QR labels, data push, quick edit, plugin integration, collaboration, and assessment rules.
+- Quick edit explicitly controls whether inline edits execute component validation, function calculation, data linkage, data association, data fill, and business rules; test quick edit separately from normal edit.
+- Enabling flow warns that field permissions become invalid and must be reset in flow nodes; existing business rules are disabled, submit validations move to flow node settings, only some message rules remain, external filling/query switches are closed, and role authorization must be redone.
+
+Generation implication: every requirement should have a designer mapping row: requirement, designer surface, DBA object(s), source/API owner, and required runtime proof.
+
 ## Platform-Wide Development Rule
 
 Use this file as a platform capability contract, not as a project note. A customer app such as 佳俊物流 is only one implementation sample. For every new project, first map the requirement to the platform layer that owns the behavior, then decide what can be generated in a DBA package and what must be configured or verified in the tenant.
