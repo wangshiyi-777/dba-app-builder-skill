@@ -323,6 +323,7 @@ Observed import entry on the PC app factory/application management page on 2026-
 - Upload accepts `.dba` and `.dbt`.
 - `创建新应用` explicitly says it creates a new application and does not affect existing apps.
 - If using `覆盖原应用`, warn the user because target app business data will be cleared.
+- Treat this import path as a stable prerequisite once it has been verified for the tenant. Do not repeatedly spend analysis time rediscovering the import UI during project iterations. Import or call the observed preview/import request path, record the returned `appId`, and shift effort to the runtime acceptance work: menu/list loading, seeded CRUD, related-record fill, child rows, business rules, print rendering, DataM dashboards, workflows, and permissions. Reopen import investigation only when import fails, the UI route changes, the package is testing overwrite behavior, or the user explicitly wants to watch the import.
 
 App management observations from 2026-07-21:
 

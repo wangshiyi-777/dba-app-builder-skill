@@ -315,6 +315,8 @@ python3 <skill>/scripts/dba_tool.py validate work/fixed_check/app.json --out out
 
 Import success is only the first gate. When platform access is available, use an isolated browser automation session so testing does not disturb the user's browser, then verify the app as an operator would.
 
+Dabei/K6 import is an environment setup step, not the feature test. When the tenant's import route has already been proven for the current platform generation, do not spend the runtime-test budget repeatedly rediscovering the UI path. Use the recorded stable import flow (`新建应用` -> `创建空白应用` -> `导入应用` -> upload `.dba` -> `创建新应用` -> confirm) or the already-observed `/api/app/apps/preview` plus `/api/app/apps/import` request shape, capture the returned app id, then move immediately to runtime menus, forms, data flow, print, dashboard, rule, workflow, and permission tests. Re-investigate import UI only when import itself fails, the platform route changes, the user specifically asks to watch the import, or the test requires `覆盖原应用` semantics.
+
 Minimum runtime checks:
 
 - Confirm the imported app opens and every module/menu can load its list page.
