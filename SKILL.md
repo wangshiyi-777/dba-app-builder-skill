@@ -159,6 +159,7 @@ Required coherent workflow assets:
 Workflow rules:
 
 - Do not treat a `flowModels` shell as a usable approval. Start-form metadata can load while the real `/api/flow/definitions/<definitionId>/start` still fails.
+- If BPMN XML contains `userTask` nodes, every task id must have a matching `flowModels[].nodeSettings[]` entry with assignees/`flowSubjects` and node buttons. A package can import and `/api/flow/design/models/<modelId>/image` can render a diagram while the flow designer still behaves like an empty or incomplete flow if task-node settings are missing.
 - Prefer ordinary forms plus business rules for high-risk inventory/ledger mutations unless a workflow sample has been proven to start and execute node actions in the target tenant.
 - Report approval forms separately from ordinary CRUD and business-rule flows. A logistics/ERP app can have working inventory automation while imported approval starts still require a platform-authored workflow sample.
 
