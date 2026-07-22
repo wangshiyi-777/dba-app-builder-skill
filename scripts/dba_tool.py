@@ -380,6 +380,38 @@ def flatten_dicts(value):
             yield from flatten_dicts(item)
 
 
+def validate_style_cols(items, scope_label: str, warn) -> None:
+    """Dabei designer uses col as row ordinal, not 12-grid offset."""
+    if not isinstance(items, list):
+        return
+
+    rows = defaultdict(list)
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        columns = item.get("columns")
+        if isinstance(columns, list):
+            if item.get("type") == "tabs":
+                for panel_index, panel in enumerate(columns):
+                    if isinstance(panel, dict):
+                        validate_style_cols(panel.get("columns"), f"{scope_label}/tabs[{panel_index}]", warn)
+            else:
+                validate_style_cols(columns, f"{scope_label}/{item.get('name') or item.get('type') or 'columns'}", warn)
+        row = item.get("row")
+        col = item.get("col")
+        if isinstance(row, int) and isinstance(col, int):
+            rows[row].append((index, col))
+
+    for row, pairs in sorted(rows.items()):
+        actual = [col for _index, col in sorted(pairs)]
+        expected = list(range(len(actual)))
+        if actual != expected:
+            warn(
+                f"{scope_label}: styleDetail row {row} has col values {actual}, "
+                f"expected ordinal {expected}; designer may render only part of the row"
+            )
+
+
 def validate_package(path: Path, out: Optional[Path] = None) -> int:
     if path.suffix.lower() == ".dba":
         obj = read_dba(path)
@@ -509,6 +541,14 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
                 for required_key in ["styleDetail", "addOption", "editOption"]:
                     if form.get(required_key) in (None, "", [], {}):
                         issue(f"{form_label}: field-bearing form missing {required_key}")
+                style_detail = form.get("styleDetail")
+                if isinstance(style_detail, str) and style_detail.strip():
+                    try:
+                        style_items = json.loads(style_detail)
+                    except Exception:
+                        style_items = None
+                    if isinstance(style_items, list):
+                        validate_style_cols(style_items, form_label, warn)
                 tabs = form.get("tabs") or []
                 if not tabs:
                     issue(f"{form_label}: field-bearing form has no tabs")
