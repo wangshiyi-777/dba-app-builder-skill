@@ -412,6 +412,21 @@ def validate_style_cols(items, scope_label: str, warn) -> None:
             )
 
 
+def iter_child_table_style_bindings(items, path: str = "styleDetail"):
+    """Yield child-table style nodes, including those nested in tabs or columns."""
+    if not isinstance(items, list):
+        return
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        item_path = f"{path}[{index}]"
+        if item.get("type") == "childrenTable":
+            yield item_path, item
+        columns = item.get("columns")
+        if isinstance(columns, list):
+            yield from iter_child_table_style_bindings(columns, f"{item_path}.columns")
+
+
 def validate_package(path: Path, out: Optional[Path] = None) -> int:
     if path.suffix.lower() == ".dba":
         obj = read_dba(path)
@@ -476,6 +491,7 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
     association_metadata_count = 0
     judge_rule_count = 0
     dashboard_count = 0
+    child_table_list_names = []
 
     for group_index, group in enumerate(app.get("groups") or []):
         group_name = group.get("name", f"group[{group_index}]")
@@ -549,6 +565,22 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
                         style_items = None
                     if isinstance(style_items, list):
                         validate_style_cols(style_items, form_label, warn)
+                        for style_path, child_style in iter_child_table_style_bindings(style_items):
+                            model = child_style.get("model")
+                            list_name = child_style.get("listName")
+                            if not is_present(model) or not is_present(list_name):
+                                issue(
+                                    f"{form_label}: {style_path} childrenTable must define both model and listName"
+                                )
+                                continue
+                            resolved_model = resolve_string(str(model), values)
+                            resolved_list_name = resolve_string(str(list_name), values)
+                            if resolved_model != resolved_list_name:
+                                issue(
+                                    f"{form_label}: {style_path} childrenTable.listName must equal its model "
+                                    f"({list_name!r} != {model!r}); the platform exporter can fail with duplicate table keys"
+                                )
+                            child_table_list_names.append((resolved_list_name, form_label, style_path))
                 tabs = form.get("tabs") or []
                 if not tabs:
                     issue(f"{form_label}: field-bearing form has no tabs")
@@ -627,6 +659,17 @@ def validate_package(path: Path, out: Optional[Path] = None) -> int:
                     if not child_table:
                         issue(f"{form_label}: child table {child_name!r} has no top-level tables[] DDL")
                     validate_field_list(field.get("children") or [], f"{form_label}/{field.get('comment', child_name)}", child_name)
+
+    child_bindings_by_list_name = defaultdict(list)
+    for list_name, form_label, style_path in child_table_list_names:
+        child_bindings_by_list_name[list_name].append((form_label, style_path))
+    for list_name, entry_list in sorted(child_bindings_by_list_name.items()):
+        if list_name and len(entry_list) > 1:
+            locations = ", ".join(f"{label}/{path}" for label, path in entry_list)
+            issue(
+                f"childrenTable.listName {list_name!r} is reused by multiple style bindings: {locations}; "
+                "the platform exporter requires one physical child-table name per binding"
+            )
 
     def form_ref_exists(ref) -> bool:
         if not is_present(ref):

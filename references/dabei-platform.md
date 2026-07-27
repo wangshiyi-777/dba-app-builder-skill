@@ -575,6 +575,13 @@ Observed 2026-07-21:
 
 - The message-push page describes triggers after data changes or after a specific action. Use it for due-date reminders, procurement timeout reminders, finance overdue-payment reminders, and QC exception notices when the package can represent or preserve the rule metadata.
 
+Configuration-sample protocol:
+
+- If the DBA package or source does not contain a known-good message-rule object, do not manufacture message-rule JSON or add a passive "reminder" field.
+- Immediately tell the user to save one minimal rule in `表单设置 -> 消息推送`, including the exact trigger, reminder text, recipients, schedule, and whether repeat is enabled.
+- Then export the configured app and compare the exported package with the prior package. Also capture the corresponding `k6-sns-service` save/query responses, such as `/sns/message/rule/edit` and `/sns/message/rule/page`.
+- Mark the reusable rule as `api_verified` after save/query round-trip. Mark it `runtime_verified` only after a real test record produces the expected notification.
+
 ### External Links
 
 Observed capabilities: public query, external form filling, data sharing, link style, public query, password query, displayed content, query fields.
